@@ -1,0 +1,24 @@
+# Build artifacts
+dist/
+cloudreve/application/statics/assets.zip
+
+# Backend runtime data
+cloudreve/data/
+cloudreve/release/
+cloudreve/tmp/
+cloudreve/uploads/
+cloudreve/*.db
+cloudreve/*.ini
+cloudreve/cloudreve
+cloudreve/cloudreve.exe
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.vite/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

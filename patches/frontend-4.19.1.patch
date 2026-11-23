@@ -1,0 +1,472 @@
+diff --git a/package.json b/package.json
+index 79bff79..0236c49 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "cloudreve-frontend",
+   "private": true,
+-  "version": "4.0.0-next",
++  "version": "4.19.1",
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+diff --git a/public/locales/en-US/application.json b/public/locales/en-US/application.json
+index a4ba147..9f34cdd 100644
+--- a/public/locales/en-US/application.json
++++ b/public/locales/en-US/application.json
+@@ -194,6 +194,10 @@
+     "relocation": "Relocate storage policy",
+     "downloadingFile": "Downloading \"{{name}}\", please do not close this page...",
+     "mountOwner": "Only the owner of current folder can mount policies.",
++    "mountPolicy": "Mount storage policy",
++    "mountedPolicy": "Mounted policy",
++    "currentStoragePolicy": "Current storage policy: {{policy}}",
++    "inheritedFromParent": "(Inherited from parent)",
+     "uploading": "Uploading",
+     "noActionsCanBeDone": "No actions can be done.",
+     "newFileName": "New file.{{ext}}",
+diff --git a/public/locales/it-IT/application.json b/public/locales/it-IT/application.json
+index 835e93a..cb533fe 100644
+--- a/public/locales/it-IT/application.json
++++ b/public/locales/it-IT/application.json
+@@ -154,6 +154,8 @@
+     "desktopMountSetup": "Monta su client desktop",
+     "desktopMountSetupDescription": "Seleziona la directory da montare sul client desktop.",
+     "currentStoragePolicy": "Policy di archiviazione corrente: {{policy}}",
++    "mountedPolicy": "Policy montata",
++    "mountPolicy": "Monta policy di archiviazione",
+     "customProps": "Proprietà personalizzate",
+     "rating": "Valutazione",
+     "description": "Descrizione",
+diff --git a/src/api/api.ts b/src/api/api.ts
+index 0fb83ec..2e708f5 100644
+--- a/src/api/api.ts
++++ b/src/api/api.ts
+@@ -62,11 +62,14 @@ import {
+   MoveFileService,
+   MultipleUriService,
+   PatchMetadataService,
++  PatchStoragePolicyService,
+   PatchViewSyncService,
+   PinFileService,
+   RenameFileService,
+   Share,
+   ShareCreateService,
++  StoragePolicyMountResponse,
++  StoragePolicyMountService,
+   UnlockFileService,
+   UploadCredential,
+   UploadSessionRequest,
+@@ -492,6 +495,40 @@ export function sendMetadataPatch(req: PatchMetadataService): ThunkResponse<void
+   };
+ }
+ 
++export function getStoragePolicyMount(req: StoragePolicyMountService): ThunkResponse<StoragePolicyMountResponse> {
++  return async (dispatch, _getState) => {
++    return await dispatch(
++      send(
++        "/file/policy",
++        {
++          params: req,
++          method: "GET",
++        },
++        {
++          ...defaultOpts,
++        },
++      ),
++    );
++  };
++}
++
++export function sendMountStoragePolicy(req: PatchStoragePolicyService): ThunkResponse<void> {
++  return async (dispatch, _getState) => {
++    return await dispatch(
++      send(
++        "/file/policy",
++        {
++          data: req,
++          method: "PATCH",
++        },
++        {
++          ...defaultOpts,
++        },
++      ),
++    );
++  };
++}
++
+ export function getSearchUser(keyword: string): ThunkResponse<User[]> {
+   return async (dispatch, _getState) => {
+     return await dispatch(
+diff --git a/src/api/explorer.ts b/src/api/explorer.ts
+index af6093e..c2d72b2 100644
+--- a/src/api/explorer.ts
++++ b/src/api/explorer.ts
+@@ -121,6 +121,21 @@ export interface StoragePolicy {
+   streaming_encryption?: boolean;
+ }
+ 
++export interface StoragePolicyMountService {
++  uri: string;
++}
++
++export interface PatchStoragePolicyService {
++  uri: string;
++  policy_id?: string;
++}
++
++export interface StoragePolicyMountResponse {
++  mounted?: StoragePolicy;
++  effective?: StoragePolicy;
++  policies: StoragePolicy[];
++}
++
+ export interface PaginationResults {
+   page: number;
+   page_size: number;
+diff --git a/src/component/FileManager/ContextMenu/ContextMenu.tsx b/src/component/FileManager/ContextMenu/ContextMenu.tsx
+index d7e74c9..d720520 100644
+--- a/src/component/FileManager/ContextMenu/ContextMenu.tsx
++++ b/src/component/FileManager/ContextMenu/ContextMenu.tsx
+@@ -14,6 +14,7 @@ import {
+   extractArchive,
+   goToParent,
+   goToSharedLink,
++  mountStoragePolicy,
+   newRemoteDownload,
+   openShareDialog,
+   openSidebar,
+@@ -43,6 +44,7 @@ import LinkOutlined from "../../Icons/LinkOutlined.tsx";
+ import Open from "../../Icons/Open.tsx";
+ import RenameOutlined from "../../Icons/RenameOutlined.tsx";
+ import ShareOutlined from "../../Icons/ShareOutlined.tsx";
++import StorageOutlined from "../../Icons/StorageOutlined.tsx";
+ import Tag from "../../Icons/Tag.tsx";
+ import Upload from "../../Icons/Upload.tsx";
+ import WrenchSettings from "../../Icons/WrenchSettings.tsx";
+@@ -118,6 +120,7 @@ const ContextMenu = ({ fmIndex = 0 }: ContextMenuProps) => {
+     displayOpt.showRemoteDownload ||
+     displayOpt.showTorrentRemoteDownload ||
+     displayOpt.showExtractArchive ||
++    displayOpt.showMountPolicyCurrentFolder ||
+     displayOpt.showUpload;
+   let part2 =
+     displayOpt.showCreateFolder ||
+@@ -177,6 +180,14 @@ const ContextMenu = ({ fmIndex = 0 }: ContextMenuProps) => {
+           <ListItemText>{t("application:fileManager.newRemoteDownloads")}</ListItemText>
+         </SquareMenuItem>
+       )}
++      {displayOpt.showMountPolicyCurrentFolder && parent && (
++        <SquareMenuItem onClick={() => dispatch(mountStoragePolicy(fmIndex, parent))}>
++          <ListItemIcon>
++            <StorageOutlined fontSize="small" />
++          </ListItemIcon>
++          <ListItemText>{t("application:fileManager.mountPolicy")}</ListItemText>
++        </SquareMenuItem>
++      )}
+       {displayOpt.showOpen && (
+         <SquareMenuItem onClick={() => dispatch(openViewers(fmIndex, targets[0]))}>
+           <ListItemIcon>
+diff --git a/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx b/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
+index b52fb3c..47021ba 100644
+--- a/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
++++ b/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
+@@ -5,9 +5,10 @@ import { CascadingContext, CascadingMenuItem } from "./CascadingMenu.tsx";
+ import { useTranslation } from "react-i18next";
+ import { useAppDispatch } from "../../../redux/hooks.ts";
+ import { closeContextMenu } from "../../../redux/fileManagerSlice.ts";
+-import { applyIconColor, dialogBasedMoveCopy } from "../../../redux/thunks/file.ts";
++import { applyIconColor, dialogBasedMoveCopy, mountStoragePolicy } from "../../../redux/thunks/file.ts";
+ import { ListItemIcon, ListItemText } from "@mui/material";
+ import FolderArrowRightOutlined from "../../Icons/FolderArrowRightOutlined.tsx";
++import StorageOutlined from "../../Icons/StorageOutlined.tsx";
+ import { setChangeIconDialog, setPinFileDialog } from "../../../redux/globalStateSlice.ts";
+ import { getFileLinkedUri } from "../../../util";
+ import PinOutlined from "../../Icons/PinOutlined.tsx";
+@@ -84,6 +85,14 @@ const OrganizeMenuItems = ({ displayOpt, targets }: SubMenuItemsProps) => {
+           <ListItemText>{t("application:fileManager.customizeIcon")}</ListItemText>
+         </CascadingMenuItem>
+       )}
++      {displayOpt.showMountPolicy && (
++        <CascadingMenuItem onClick={onClick(() => dispatch(mountStoragePolicy(0, targets[0])))}>
++          <ListItemIcon>
++            <StorageOutlined fontSize="small" />
++          </ListItemIcon>
++          <ListItemText>{t("application:fileManager.mountPolicy")}</ListItemText>
++        </CascadingMenuItem>
++      )}
+       {showDivider && <DenseDivider />}
+       {displayOpt.showChangeFolderColor && (
+         <FolderColorQuickAction
+diff --git a/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts b/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
+index a2e1e62..07fa905 100644
+--- a/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
++++ b/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
+@@ -72,6 +72,8 @@ export interface DisplayOption {
+   showChangeFolderColor?: boolean;
+   showChangeIcon?: boolean;
+   showCustomProps?: boolean;
++  showMountPolicy?: boolean;
++  showMountPolicyCurrentFolder?: boolean;
+ 
+   showMore?: boolean;
+   showVersionControl?: boolean;
+@@ -118,6 +120,7 @@ export const getActionOpt = (
+ 
+     const parentCap = new Boolset(parent.capability);
+     display.showCreateFolder = parentCap.enabled(NavigatorCapability.create_file) && parent.owned;
++    display.showMountPolicyCurrentFolder = parent.owned;
+     display.showCreateFile = display.showCreateFolder && fmIndex == FileManagerIndex.main;
+     display.showUpload = display.showCreateFile;
+     if (display.showCreateFile) {
+@@ -232,6 +235,12 @@ export const getActionOpt = (
+   display.showChangeIcon =
+     display.hasUpdatable && display.orCapability && display.orCapability.enabled(NavigatorCapability.update_metadata);
+   display.showCustomProps = display.showChangeIcon;
++  display.showMountPolicy =
++    targets.length == 1 &&
++    display.hasFolder &&
++    display.allUpdatable &&
++    !!currentUser &&
++    (targets[0].owned || groupBs.enabled(GroupPermission.is_admin));
+   display.showDownload =
+     display.hasReadable && display.orCapability && display.orCapability.enabled(NavigatorCapability.download_file);
+   display.showDirectLink =
+@@ -275,7 +284,7 @@ export const getActionOpt = (
+     display.showOpenWith = () =>
+       !!(display.showOpen && viewerSetting && viewerSetting[firstFileSuffix ?? ""]?.length < 1);
+   }
+-  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon;
++  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon || display.showMountPolicy;
+   display.showGoToSharedLink =
+     targets.length == 1 && display.hasFile && targets[0].metadata && !!targets[0].metadata[Metadata.share_redirect];
+   display.showInfo = targets.length == 1 && display.orCapability && canShowInfo(display.orCapability);
+diff --git a/src/component/FileManager/Sidebar/BasicInfo.tsx b/src/component/FileManager/Sidebar/BasicInfo.tsx
+index 8f7e67f..cac9530 100644
+--- a/src/component/FileManager/Sidebar/BasicInfo.tsx
++++ b/src/component/FileManager/Sidebar/BasicInfo.tsx
+@@ -2,7 +2,7 @@ import { Box, Link, Skeleton, Tooltip, Typography } from "@mui/material";
+ import dayjs from "dayjs";
+ import { useCallback, useEffect, useMemo, useState } from "react";
+ import { useTranslation } from "react-i18next";
+-import { getFileInfo, sendPatchViewSync } from "../../../api/api.ts";
++import { getFileInfo, getStoragePolicyMount, sendPatchViewSync } from "../../../api/api.ts";
+ import {
+   EncryptionCipher,
+   ExplorerView,
+@@ -10,8 +10,10 @@ import {
+   FileType,
+   FolderSummary,
+   Metadata,
++  StoragePolicyMountResponse,
+ } from "../../../api/explorer.ts";
+ import { useAppDispatch, useAppSelector } from "../../../redux/hooks.ts";
++import { mountStoragePolicy } from "../../../redux/thunks/file.ts";
+ import SessionManager from "../../../session/index.ts";
+ import { sizeToString } from "../../../util";
+ import CrUri from "../../../util/uri.ts";
+@@ -113,6 +115,7 @@ const BasicInfo = ({ target }: BasicInfoProps) => {
+   const dispatch = useAppDispatch();
+ 
+   const showEncryptionStatus = useAppSelector((state) => state.siteConfig?.explorer?.config?.show_encryption_status);
++  const storagePolicyGeneration = useAppSelector((state) => state.globalState.storagePolicyGeneration);
+   const ftsEnabled = useAppSelector((state) => state.siteConfig?.explorer?.config?.full_text_search);
+ 
+   // null: not valid, undefined: not loaded, FolderSummary: loaded
+@@ -166,6 +169,43 @@ const BasicInfo = ({ target }: BasicInfoProps) => {
+     return <Skeleton variant={"text"} width={75} />;
+   }, [target.extended_info, t]);
+ 
++  const [policyMount, setPolicyMount] = useState<StoragePolicyMountResponse | undefined>(undefined);
++  useEffect(() => {
++    setPolicyMount(undefined);
++    if (target.type != FileType.folder || !target.owned) {
++      return;
++    }
++
++    let cancelled = false;
++    dispatch(getStoragePolicyMount({ uri: target.path }))
++      .then((res) => {
++        if (!cancelled) {
++          setPolicyMount(res);
++        }
++      })
++      .catch(() => {
++        if (!cancelled) {
++          setPolicyMount(undefined);
++        }
++      });
++
++    return () => {
++      cancelled = true;
++    };
++  }, [target.path, target.type, target.owned, storagePolicyGeneration, dispatch]);
++
++  const folderStoragePolicy = useMemo(() => {
++    if (!target.owned) {
++      return target.extended_info?.storage_policy?.name ?? t("fileManager.unset");
++    }
++
++    if (!policyMount) {
++      return <Skeleton variant={"text"} width={75} />;
++    }
++
++    return policyMount.effective?.name ?? t("fileManager.unset");
++  }, [policyMount, target.owned, target.extended_info, t]);
++
+   const targetCrUri = useMemo(() => {
+     return new CrUri(target.path);
+   }, [target]);
+@@ -274,6 +314,34 @@ const BasicInfo = ({ target }: BasicInfoProps) => {
+           />
+         }
+       />
++      <InfoRow
++        title={t("application:fileManager.storagePolicy")}
++        content={target.type == FileType.folder ? folderStoragePolicy : storagePolicy}
++      />
++      {target.type == FileType.folder && target.owned && (
++        <InfoRow
++          title={t("fileManager.mountedPolicy", { defaultValue: "Policy montata" })}
++          content={
++            !policyMount ? (
++              <Skeleton variant={"text"} width={75} />
++            ) : (
++              <>
++                {policyMount.mounted?.name ?? t("application:fileManager.inheritedFromParent")}{" "}
++                <Link
++                  href={"#"}
++                  underline={"hover"}
++                  onClick={(e) => {
++                    e.preventDefault();
++                    dispatch(mountStoragePolicy(0, target));
++                  }}
++                >
++                  {t("application:fileManager.mountPolicy")}
++                </Link>
++              </>
++            )
++          }
++        />
++      )}
+       {restoreParent && (
+         <InfoRow
+           title={t("fileManager.originalLocation")}
+diff --git a/src/redux/globalStateSlice.ts b/src/redux/globalStateSlice.ts
+index 6d8a874..0ddb95e 100644
+--- a/src/redux/globalStateSlice.ts
++++ b/src/redux/globalStateSlice.ts
+@@ -101,6 +101,7 @@ export interface GlobalStateSlice {
+ 
+   // Others
+   pinedGeneration: number;
++  storagePolicyGeneration: number;
+ 
+   // Dialogs
+   // Aggregated error dialog
+@@ -292,6 +293,7 @@ const initialState: GlobalStateSlice = {
+     headlessFrame: false,
+   },
+   pinedGeneration: 0,
++  storagePolicyGeneration: 0,
+   darkMode: SessionManager.get(UserSettings.PreferredDarkMode),
+   preferredTheme: preferred_theme,
+   drawerOpen: true,
+@@ -685,6 +687,9 @@ export const globalStateSlice = createSlice({
+     increasePinedGeneration: (state) => {
+       state.pinedGeneration += 1;
+     },
++    increaseStoragePolicyGeneration: (state) => {
++      state.storagePolicyGeneration += 1;
++    },
+     setPinFileDialog: (state, action: PayloadAction<{ open: boolean; uri?: string }>) => {
+       state.pinFileDialogOpen = action.payload.open;
+       state.pinFileUri = action.payload.uri;
+@@ -915,6 +920,7 @@ export const {
+   setPinFileDialog,
+   closePinFileDialog,
+   increasePinedGeneration,
++  increaseStoragePolicyGeneration,
+   setConfirmDialog,
+   closeConfirmDialog,
+   updateLockConflicts,
+diff --git a/src/redux/thunks/file.ts b/src/redux/thunks/file.ts
+index e7865b4..85cf201 100644
+--- a/src/redux/thunks/file.ts
++++ b/src/redux/thunks/file.ts
+@@ -6,10 +6,12 @@ import {
+   getFileEntityUrl,
+   getFileList,
+   getFileThumb,
++  getStoragePolicyMount,
+   sendCreateFile,
+   sendDeleteFiles,
+   sendEmptyTrash,
+   sendMetadataPatch,
++  sendMountStoragePolicy,
+   sendMoveFile,
+   sendRenameFile,
+   sendRestoreFile,
+@@ -72,10 +74,11 @@ import {
+   setShareLinkDialog,
+   setSidebar,
+   updateLockConflicts,
++  increaseStoragePolicyGeneration,
+ } from "../globalStateSlice.ts";
+ import { ConfigLoadState, Viewers } from "../siteConfigSlice.ts";
+ import { AppThunk } from "../store.ts";
+-import { confirmOperation, deleteConfirmation, renameForm, requestCreateNew, selectPath } from "./dialog.ts";
++import { confirmOperation, deleteConfirmation, renameForm, requestCreateNew, selectOption, selectPath } from "./dialog.ts";
+ import { downloadSingleFile } from "./download.ts";
+ import { navigateToPath, refreshFileList, updateUserCapacity } from "./filemanager.ts";
+ import { queueLoadShareInfo } from "./share.ts";
+@@ -451,6 +454,48 @@ export function renameFile(index: number, file: FileResponse): AppThunk<Promise<
+   };
+ }
+ 
++export function mountStoragePolicy(index: number, file: FileResponse): AppThunk<Promise<void>> {
++  return async (dispatch) => {
++    const res = await dispatch(getStoragePolicyMount({ uri: file.path }));
++    const options = [
++      {
++        name: i18next.t("application:fileManager.inheritedFromParent"),
++        description: i18next.t("application:fileManager.currentStoragePolicy", {
++          policy: res.effective?.name ?? "-",
++        }),
++        value: "",
++      },
++      ...res.policies.map((policy) => ({
++        name: `${policy.name}${policy.id === res.mounted?.id ? " ✓" : ""}`,
++        description: policy.type,
++        value: policy.id,
++      })),
++    ];
++
++    let selected: any;
++    try {
++      selected = await dispatch(selectOption(options, i18next.t("application:fileManager.mountPolicy")));
++    } catch (e) {
++      // operation canceled
++      return;
++    }
++
++    await dispatch(
++      sendMountStoragePolicy({
++        uri: file.path,
++        policy_id: selected ? selected : undefined,
++      }),
++    );
++
++    dispatch(increaseStoragePolicyGeneration());
++    enqueueSnackbar({
++      message: i18next.t("application:fileManager.saved"),
++      variant: "success",
++    });
++    await dispatch(refreshFileList(index));
++  };
++}
++
+ const special = '\\/:*?"<>|';
+ 
+ export function validateFileNamePure(newName: string, existingNames: string[]): string | undefined {
