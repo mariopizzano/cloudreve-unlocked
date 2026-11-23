@@ -12,35 +12,43 @@ index 79bff79..0236c49 100644
    "scripts": {
      "dev": "vite",
 diff --git a/public/locales/en-US/application.json b/public/locales/en-US/application.json
-index a4ba147..9f34cdd 100644
+index a4ba147..fc471b8 100644
 --- a/public/locales/en-US/application.json
 +++ b/public/locales/en-US/application.json
-@@ -194,6 +194,10 @@
+@@ -194,6 +194,14 @@
      "relocation": "Relocate storage policy",
      "downloadingFile": "Downloading \"{{name}}\", please do not close this page...",
      "mountOwner": "Only the owner of current folder can mount policies.",
 +    "mountPolicy": "Mount storage policy",
 +    "mountedPolicy": "Mounted policy",
++    "relocatePolicy": "Relocate storage policy",
++    "relocateConfirm": "Move {{files}} files ({{size}}) to \"{{policy}}\"? Already on destination: {{skipped}}. Unsupported: {{unsupported}}.",
++    "relocateNoFiles": "No files to move. Already on destination: {{skipped}}. Unsupported: {{unsupported}}.",
++    "relocateTaskCreated": "Relocation task created.",
 +    "currentStoragePolicy": "Current storage policy: {{policy}}",
 +    "inheritedFromParent": "(Inherited from parent)",
      "uploading": "Uploading",
      "noActionsCanBeDone": "No actions can be done.",
      "newFileName": "New file.{{ext}}",
 diff --git a/public/locales/it-IT/application.json b/public/locales/it-IT/application.json
-index 835e93a..cb533fe 100644
+index 835e93a..c0be700 100644
 --- a/public/locales/it-IT/application.json
 +++ b/public/locales/it-IT/application.json
-@@ -154,6 +154,8 @@
+@@ -154,6 +154,12 @@
      "desktopMountSetup": "Monta su client desktop",
      "desktopMountSetupDescription": "Seleziona la directory da montare sul client desktop.",
      "currentStoragePolicy": "Policy di archiviazione corrente: {{policy}}",
 +    "mountedPolicy": "Policy montata",
 +    "mountPolicy": "Monta policy di archiviazione",
++    "relocatePolicy": "Riposiziona policy di archiviazione",
++    "relocateConfirm": "Spostare {{files}} file ({{size}}) su \"{{policy}}\"? Già sulla destinazione: {{skipped}}. Non supportati: {{unsupported}}.",
++    "relocateNoFiles": "Nessun file da spostare. Già sulla destinazione: {{skipped}}. Non supportati: {{unsupported}}.",
++    "relocateTaskCreated": "Task di riposizionamento creato.",
      "customProps": "Proprietà personalizzate",
      "rating": "Valutazione",
      "description": "Descrizione",
 diff --git a/src/api/api.ts b/src/api/api.ts
-index 0fb83ec..2e708f5 100644
+index 0fb83ec..9e52b92 100644
 --- a/src/api/api.ts
 +++ b/src/api/api.ts
 @@ -62,11 +62,14 @@ import {
@@ -58,7 +66,16 @@ index 0fb83ec..2e708f5 100644
    UnlockFileService,
    UploadCredential,
    UploadSessionRequest,
-@@ -492,6 +495,40 @@ export function sendMetadataPatch(req: PatchMetadataService): ThunkResponse<void
+@@ -107,6 +110,8 @@ import {
+   ImportWorkflowService,
+   ListTaskService,
+   RebuildFTSIndexWorkflowService,
++  RelocatePlanResponse,
++  RelocateWorkflowService,
+   SetDownloadFilesService,
+   TaskListResponse,
+   TaskProgresses,
+@@ -492,6 +497,40 @@ export function sendMetadataPatch(req: PatchMetadataService): ThunkResponse<void
    };
  }
  
@@ -99,6 +116,47 @@ index 0fb83ec..2e708f5 100644
  export function getSearchUser(keyword: string): ThunkResponse<User[]> {
    return async (dispatch, _getState) => {
      return await dispatch(
+@@ -856,6 +895,40 @@ export function sendExtractArchive(req: ArchiveWorkflowService): ThunkResponse<T
+   };
+ }
+ 
++export function getRelocatePlan(req: RelocateWorkflowService): ThunkResponse<RelocatePlanResponse> {
++  return async (dispatch, _getState) => {
++    return await dispatch(
++      send(
++        "/workflow/relocate/plan",
++        {
++          data: req,
++          method: "POST",
++        },
++        {
++          ...defaultOpts,
++        },
++      ),
++    );
++  };
++}
++
++export function sendRelocate(req: RelocateWorkflowService): ThunkResponse<TaskResponse> {
++  return async (dispatch, _getState) => {
++    return await dispatch(
++      send(
++        "/workflow/relocate",
++        {
++          data: req,
++          method: "POST",
++        },
++        {
++          ...defaultOpts,
++        },
++      ),
++    );
++  };
++}
++
+ export function getTasks(req: ListTaskService): ThunkResponse<TaskListResponse> {
+   return async (dispatch, _getState) => {
+     return await dispatch(
 diff --git a/src/api/explorer.ts b/src/api/explorer.ts
 index af6093e..c2d72b2 100644
 --- a/src/api/explorer.ts
@@ -125,6 +183,44 @@ index af6093e..c2d72b2 100644
  export interface PaginationResults {
    page: number;
    page_size: number;
+diff --git a/src/api/workflow.ts b/src/api/workflow.ts
+index 351cb92..c607d4d 100644
+--- a/src/api/workflow.ts
++++ b/src/api/workflow.ts
+@@ -1,4 +1,4 @@
+-import { PaginationResults } from "./explorer.ts";
++import { PaginationResults, StoragePolicy } from "./explorer.ts";
+ 
+ export interface ArchiveWorkflowService {
+   src: string[];
+@@ -95,6 +95,19 @@ export const NodeCapability = {
+ export interface RelocateWorkflowService {
+   src: string[];
+   dst_policy_id: string;
++  delete_source?: boolean;
++}
++
++export interface RelocatePlanResponse {
++  plan: {
++    files: number;
++    folders: number;
++    skipped: number;
++    unsupported: number;
++    encrypted: number;
++    size: number;
++  };
++  policy: StoragePolicy;
+ }
+ 
+ export interface DownloadWorkflowService {
+@@ -127,6 +140,7 @@ export enum ListTaskCategory {
+ export enum TaskType {
+   create_archive = "create_archive",
+   extract_archive = "extract_archive",
++  relocate = "relocate",
+   remote_download = "remote_download",
+   media_metadata = "media_meta",
+   entity_recycle_routine = "entity_recycle_routine",
 diff --git a/src/component/FileManager/ContextMenu/ContextMenu.tsx b/src/component/FileManager/ContextMenu/ContextMenu.tsx
 index d7e74c9..d720520 100644
 --- a/src/component/FileManager/ContextMenu/ContextMenu.tsx
@@ -169,7 +265,7 @@ index d7e74c9..d720520 100644
          <SquareMenuItem onClick={() => dispatch(openViewers(fmIndex, targets[0]))}>
            <ListItemIcon>
 diff --git a/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx b/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
-index b52fb3c..47021ba 100644
+index b52fb3c..c27f5d6 100644
 --- a/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
 +++ b/src/component/FileManager/ContextMenu/OrganizeMenuItems.tsx
 @@ -5,9 +5,10 @@ import { CascadingContext, CascadingMenuItem } from "./CascadingMenu.tsx";
@@ -177,14 +273,14 @@ index b52fb3c..47021ba 100644
  import { useAppDispatch } from "../../../redux/hooks.ts";
  import { closeContextMenu } from "../../../redux/fileManagerSlice.ts";
 -import { applyIconColor, dialogBasedMoveCopy } from "../../../redux/thunks/file.ts";
-+import { applyIconColor, dialogBasedMoveCopy, mountStoragePolicy } from "../../../redux/thunks/file.ts";
++import { applyIconColor, dialogBasedMoveCopy, mountStoragePolicy, relocateFiles } from "../../../redux/thunks/file.ts";
  import { ListItemIcon, ListItemText } from "@mui/material";
  import FolderArrowRightOutlined from "../../Icons/FolderArrowRightOutlined.tsx";
 +import StorageOutlined from "../../Icons/StorageOutlined.tsx";
  import { setChangeIconDialog, setPinFileDialog } from "../../../redux/globalStateSlice.ts";
  import { getFileLinkedUri } from "../../../util";
  import PinOutlined from "../../Icons/PinOutlined.tsx";
-@@ -84,6 +85,14 @@ const OrganizeMenuItems = ({ displayOpt, targets }: SubMenuItemsProps) => {
+@@ -84,6 +85,22 @@ const OrganizeMenuItems = ({ displayOpt, targets }: SubMenuItemsProps) => {
            <ListItemText>{t("application:fileManager.customizeIcon")}</ListItemText>
          </CascadingMenuItem>
        )}
@@ -196,23 +292,32 @@ index b52fb3c..47021ba 100644
 +          <ListItemText>{t("application:fileManager.mountPolicy")}</ListItemText>
 +        </CascadingMenuItem>
 +      )}
++      {displayOpt.showRelocate && (
++        <CascadingMenuItem onClick={onClick(() => dispatch(relocateFiles(0, targets)))}>
++          <ListItemIcon>
++            <StorageOutlined fontSize="small" />
++          </ListItemIcon>
++          <ListItemText>{t("application:fileManager.relocatePolicy")}</ListItemText>
++        </CascadingMenuItem>
++      )}
        {showDivider && <DenseDivider />}
        {displayOpt.showChangeFolderColor && (
          <FolderColorQuickAction
 diff --git a/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts b/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
-index a2e1e62..07fa905 100644
+index a2e1e62..81a019b 100644
 --- a/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
 +++ b/src/component/FileManager/ContextMenu/useActionDisplayOpt.ts
-@@ -72,6 +72,8 @@ export interface DisplayOption {
+@@ -72,6 +72,9 @@ export interface DisplayOption {
    showChangeFolderColor?: boolean;
    showChangeIcon?: boolean;
    showCustomProps?: boolean;
 +  showMountPolicy?: boolean;
 +  showMountPolicyCurrentFolder?: boolean;
++  showRelocate?: boolean;
  
    showMore?: boolean;
    showVersionControl?: boolean;
-@@ -118,6 +120,7 @@ export const getActionOpt = (
+@@ -118,6 +121,7 @@ export const getActionOpt = (
  
      const parentCap = new Boolset(parent.capability);
      display.showCreateFolder = parentCap.enabled(NavigatorCapability.create_file) && parent.owned;
@@ -220,7 +325,20 @@ index a2e1e62..07fa905 100644
      display.showCreateFile = display.showCreateFolder && fmIndex == FileManagerIndex.main;
      display.showUpload = display.showCreateFile;
      if (display.showCreateFile) {
-@@ -232,6 +235,12 @@ export const getActionOpt = (
+@@ -222,6 +226,12 @@ export const getActionOpt = (
+     (!targets[0].metadata ||
+       (!targets[0].metadata[Metadata.share_redirect] && !targets[0].metadata[Metadata.restore_uri]));
+   display.showMove = display.hasUpdatable && !!display.orCapability;
++  display.showRelocate =
++    targets.length >= 1 &&
++    display.allUpdatable &&
++    !display.hasTrashFile &&
++    !!currentUser &&
++    targets.every((target) => target.owned || groupBs.enabled(GroupPermission.is_admin));
+   display.showTags =
+     display.hasUpdatable && display.orCapability && display.orCapability.enabled(NavigatorCapability.update_metadata);
+   display.showChangeFolderColor =
+@@ -232,6 +242,12 @@ export const getActionOpt = (
    display.showChangeIcon =
      display.hasUpdatable && display.orCapability && display.orCapability.enabled(NavigatorCapability.update_metadata);
    display.showCustomProps = display.showChangeIcon;
@@ -233,12 +351,12 @@ index a2e1e62..07fa905 100644
    display.showDownload =
      display.hasReadable && display.orCapability && display.orCapability.enabled(NavigatorCapability.download_file);
    display.showDirectLink =
-@@ -275,7 +284,7 @@ export const getActionOpt = (
+@@ -275,7 +291,7 @@ export const getActionOpt = (
      display.showOpenWith = () =>
        !!(display.showOpen && viewerSetting && viewerSetting[firstFileSuffix ?? ""]?.length < 1);
    }
 -  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon;
-+  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon || display.showMountPolicy;
++  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon || display.showMountPolicy || display.showRelocate;
    display.showGoToSharedLink =
      targets.length == 1 && display.hasFile && targets[0].metadata && !!targets[0].metadata[Metadata.share_redirect];
    display.showInfo = targets.length == 1 && display.orCapability && canShowInfo(display.orCapability);
@@ -353,6 +471,42 @@ index 8f7e67f..cac9530 100644
        {restoreParent && (
          <InfoRow
            title={t("fileManager.originalLocation")}
+diff --git a/src/component/Pages/Tasks/TaskSummaryTitle.tsx b/src/component/Pages/Tasks/TaskSummaryTitle.tsx
+index cf02651..998b5b2 100644
+--- a/src/component/Pages/Tasks/TaskSummaryTitle.tsx
++++ b/src/component/Pages/Tasks/TaskSummaryTitle.tsx
+@@ -43,6 +43,31 @@ const TaskSummaryTitle = ({ type, summary, isInDashboard = false }: TaskSummaryT
+   }, [summary?.props.download?.files]);
+ 
+   switch (type) {
++    case TaskType.relocate:
++      return (
++        <Trans
++          i18nKey="setting.relocateFileTo"
++          components={[
++            <span key={0}>
++              {summary?.props.src_multiple?.slice(0, 3).map((src) => (
++                <StyledFileBadge
++                  variant={"outlined"}
++                  simplifiedFile={{
++                    type: FileType.file,
++                    path: src,
++                  }}
++                />
++              ))}
++            </span>,
++          ]}
++          values={{
++            policy: policyOption
++              ? policyOption.find((p) => p.id == summary?.props.dst_policy_id)?.name ?? "Unknown"
++              : "",
++            more: (summary?.props.src_multiple?.length ?? 0) > 3 ? "..." : "",
++          }}
++        />
++      );
+     case TaskType.remote_download:
+       return (
+         <Box
 diff --git a/src/redux/globalStateSlice.ts b/src/redux/globalStateSlice.ts
 index 6d8a874..0ddb95e 100644
 --- a/src/redux/globalStateSlice.ts
@@ -392,13 +546,14 @@ index 6d8a874..0ddb95e 100644
    closeConfirmDialog,
    updateLockConflicts,
 diff --git a/src/redux/thunks/file.ts b/src/redux/thunks/file.ts
-index e7865b4..85cf201 100644
+index e7865b4..ffdc478 100644
 --- a/src/redux/thunks/file.ts
 +++ b/src/redux/thunks/file.ts
-@@ -6,10 +6,12 @@ import {
+@@ -6,11 +6,15 @@ import {
    getFileEntityUrl,
    getFileList,
    getFileThumb,
++  getRelocatePlan,
 +  getStoragePolicyMount,
    sendCreateFile,
    sendDeleteFiles,
@@ -406,9 +561,20 @@ index e7865b4..85cf201 100644
    sendMetadataPatch,
 +  sendMountStoragePolicy,
    sendMoveFile,
++  sendRelocate,
    sendRenameFile,
    sendRestoreFile,
-@@ -72,10 +74,11 @@ import {
+   sendUnlockFiles,
+@@ -40,7 +44,7 @@ import { loadingDebounceMs } from "../../constants";
+ import { defaultPath } from "../../hooks/useNavigation.tsx";
+ import SessionManager, { UserSettings } from "../../session";
+ import { addRecentUsedColor, addUsedTags } from "../../session/utils.ts";
+-import { fileExtension, getFileLinkedUri } from "../../util";
++import { fileExtension, getFileLinkedUri, sizeToString } from "../../util";
+ import Boolset from "../../util/boolset.ts";
+ import { canCopyMoveTo } from "../../util/permission.ts";
+ import CrUri, { Filesystem } from "../../util/uri.ts";
+@@ -72,10 +76,11 @@ import {
    setShareLinkDialog,
    setSidebar,
    updateLockConflicts,
@@ -421,7 +587,7 @@ index e7865b4..85cf201 100644
  import { downloadSingleFile } from "./download.ts";
  import { navigateToPath, refreshFileList, updateUserCapacity } from "./filemanager.ts";
  import { queueLoadShareInfo } from "./share.ts";
-@@ -451,6 +454,48 @@ export function renameFile(index: number, file: FileResponse): AppThunk<Promise<
+@@ -451,6 +456,134 @@ export function renameFile(index: number, file: FileResponse): AppThunk<Promise<
    };
  }
  
@@ -464,6 +630,92 @@ index e7865b4..85cf201 100644
 +      variant: "success",
 +    });
 +    await dispatch(refreshFileList(index));
++  };
++}
++
++export function relocateFiles(index: number, files: FileResponse[]): AppThunk<Promise<void>> {
++  return async (dispatch) => {
++    if (files.length === 0) {
++      return;
++    }
++
++    let mountRes;
++    try {
++      mountRes = await dispatch(
++        getStoragePolicyMount({
++          uri: new CrUri(files[0].path).parent().toString(),
++        }),
++      );
++    } catch (e) {
++      return;
++    }
++
++    const options = mountRes.policies
++      .filter((policy) => policy.type !== "load_balance")
++      .map((policy) => ({
++        name: policy.name,
++        description: policy.type,
++        value: policy.id,
++      }));
++
++    let selected: any;
++    try {
++      selected = await dispatch(selectOption(options, i18next.t("application:fileManager.relocatePolicy")));
++    } catch (e) {
++      return;
++    }
++
++    if (!selected) {
++      return;
++    }
++
++    const src = files.map((file) => file.path);
++    const planRes = await dispatch(
++      getRelocatePlan({
++        src,
++        dst_policy_id: selected,
++      }),
++    );
++
++    if (planRes.plan.files <= 0) {
++      enqueueSnackbar({
++        message: i18next.t("application:fileManager.relocateNoFiles", {
++          skipped: planRes.plan.skipped,
++          unsupported: planRes.plan.unsupported,
++        }),
++        variant: "warning",
++      });
++      return;
++    }
++
++    try {
++      await dispatch(
++        confirmOperation(
++          i18next.t("application:fileManager.relocateConfirm", {
++            files: planRes.plan.files,
++            size: sizeToString(planRes.plan.size),
++            policy: planRes.policy.name,
++            skipped: planRes.plan.skipped,
++            unsupported: planRes.plan.unsupported,
++          }),
++        ),
++      );
++    } catch (e) {
++      return;
++    }
++
++    await dispatch(
++      sendRelocate({
++        src,
++        dst_policy_id: selected,
++      }),
++    );
++
++    enqueueSnackbar({
++      message: i18next.t("application:fileManager.relocateTaskCreated"),
++      variant: "success",
++    });
++    dispatch(refreshFileList(index));
 +  };
 +}
 +
