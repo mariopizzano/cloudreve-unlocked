@@ -98,7 +98,9 @@ const OrganizeMenuItems = ({ displayOpt, targets }: SubMenuItemsProps) => {
           <ListItemIcon>
             <StorageOutlined fontSize="small" />
           </ListItemIcon>
-          <ListItemText>{t("application:fileManager.relocatePolicy")}</ListItemText>
+          <ListItemText>
+            {t("application:fileManager.relocatePolicy", { defaultValue: "Relocate storage policy" })}
+          </ListItemText>
         </CascadingMenuItem>
       )}
       {showDivider && <DenseDivider />}

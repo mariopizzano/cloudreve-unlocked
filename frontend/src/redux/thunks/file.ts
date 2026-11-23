@@ -525,7 +525,12 @@ export function relocateFiles(index: number, files: FileResponse[]): AppThunk<Pr
 
     let selected: any;
     try {
-      selected = await dispatch(selectOption(options, i18next.t("application:fileManager.relocatePolicy")));
+      selected = await dispatch(
+        selectOption(
+          options,
+          i18next.t("application:fileManager.relocatePolicy", { defaultValue: "Relocate storage policy" }),
+        ),
+      );
     } catch (e) {
       return;
     }

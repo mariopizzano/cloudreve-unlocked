@@ -18,6 +18,7 @@ if [ ! -d node_modules ]; then
   fi
 fi
 npm pkg set version="$VERSION"
+export ASSETS_VERSION="${VERSION}-$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
 npm run build
 
 echo "== embed frontend"

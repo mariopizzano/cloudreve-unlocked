@@ -8,6 +8,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const backend = "http://localhost:5212";
 const backendProxyOption = { target: backend, headers: { host: new URL(backend).host } };
+const assetsVersion = process.env.ASSETS_VERSION || process.env.npm_package_version || "dev";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -59,7 +60,7 @@ export default defineConfig({
     // }),
   ],
   define: {
-    __ASSETS_VERSION__: JSON.stringify(process.env.npm_package_version),
+    __ASSETS_VERSION__: JSON.stringify(assetsVersion),
   },
   build: {
     outDir: "build", // keep same as v3 with minimal changes

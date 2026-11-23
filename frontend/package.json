@@ -4,6 +4,7 @@
   "version": "4.19.1",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/check-i18n.mjs",
     "dev": "vite",
     "build": "vite build",
     "build-prod": "tsc && vite build",
