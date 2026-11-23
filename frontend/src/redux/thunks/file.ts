@@ -6,6 +6,7 @@ import {
   getFileEntityUrl,
   getFileList,
   getFileThumb,
+  getRelocatePlan,
   getStoragePolicyMount,
   sendCreateFile,
   sendDeleteFiles,
@@ -13,6 +14,7 @@ import {
   sendMetadataPatch,
   sendMountStoragePolicy,
   sendMoveFile,
+  sendRelocate,
   sendRenameFile,
   sendRestoreFile,
   sendUnlockFiles,
@@ -42,7 +44,7 @@ import { loadingDebounceMs } from "../../constants";
 import { defaultPath } from "../../hooks/useNavigation.tsx";
 import SessionManager, { UserSettings } from "../../session";
 import { addRecentUsedColor, addUsedTags } from "../../session/utils.ts";
-import { fileExtension, getFileLinkedUri } from "../../util";
+import { fileExtension, getFileLinkedUri, sizeToString } from "../../util";
 import Boolset from "../../util/boolset.ts";
 import { canCopyMoveTo } from "../../util/permission.ts";
 import CrUri, { Filesystem } from "../../util/uri.ts";
@@ -493,6 +495,92 @@ export function mountStoragePolicy(index: number, file: FileResponse): AppThunk<
       variant: "success",
     });
     await dispatch(refreshFileList(index));
+  };
+}
+
+export function relocateFiles(index: number, files: FileResponse[]): AppThunk<Promise<void>> {
+  return async (dispatch) => {
+    if (files.length === 0) {
+      return;
+    }
+
+    let mountRes;
+    try {
+      mountRes = await dispatch(
+        getStoragePolicyMount({
+          uri: new CrUri(files[0].path).parent().toString(),
+        }),
+      );
+    } catch (e) {
+      return;
+    }
+
+    const options = mountRes.policies
+      .filter((policy) => policy.type !== "load_balance")
+      .map((policy) => ({
+        name: policy.name,
+        description: policy.type,
+        value: policy.id,
+      }));
+
+    let selected: any;
+    try {
+      selected = await dispatch(selectOption(options, i18next.t("application:fileManager.relocatePolicy")));
+    } catch (e) {
+      return;
+    }
+
+    if (!selected) {
+      return;
+    }
+
+    const src = files.map((file) => file.path);
+    const planRes = await dispatch(
+      getRelocatePlan({
+        src,
+        dst_policy_id: selected,
+      }),
+    );
+
+    if (planRes.plan.files <= 0) {
+      enqueueSnackbar({
+        message: i18next.t("application:fileManager.relocateNoFiles", {
+          skipped: planRes.plan.skipped,
+          unsupported: planRes.plan.unsupported,
+        }),
+        variant: "warning",
+      });
+      return;
+    }
+
+    try {
+      await dispatch(
+        confirmOperation(
+          i18next.t("application:fileManager.relocateConfirm", {
+            files: planRes.plan.files,
+            size: sizeToString(planRes.plan.size),
+            policy: planRes.policy.name,
+            skipped: planRes.plan.skipped,
+            unsupported: planRes.plan.unsupported,
+          }),
+        ),
+      );
+    } catch (e) {
+      return;
+    }
+
+    await dispatch(
+      sendRelocate({
+        src,
+        dst_policy_id: selected,
+      }),
+    );
+
+    enqueueSnackbar({
+      message: i18next.t("application:fileManager.relocateTaskCreated"),
+      variant: "success",
+    });
+    dispatch(refreshFileList(index));
   };
 }
 

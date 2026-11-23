@@ -74,6 +74,7 @@ export interface DisplayOption {
   showCustomProps?: boolean;
   showMountPolicy?: boolean;
   showMountPolicyCurrentFolder?: boolean;
+  showRelocate?: boolean;
 
   showMore?: boolean;
   showVersionControl?: boolean;
@@ -225,6 +226,12 @@ export const getActionOpt = (
     (!targets[0].metadata ||
       (!targets[0].metadata[Metadata.share_redirect] && !targets[0].metadata[Metadata.restore_uri]));
   display.showMove = display.hasUpdatable && !!display.orCapability;
+  display.showRelocate =
+    targets.length >= 1 &&
+    display.allUpdatable &&
+    !display.hasTrashFile &&
+    !!currentUser &&
+    targets.every((target) => target.owned || groupBs.enabled(GroupPermission.is_admin));
   display.showTags =
     display.hasUpdatable && display.orCapability && display.orCapability.enabled(NavigatorCapability.update_metadata);
   display.showChangeFolderColor =
@@ -284,7 +291,7 @@ export const getActionOpt = (
     display.showOpenWith = () =>
       !!(display.showOpen && viewerSetting && viewerSetting[firstFileSuffix ?? ""]?.length < 1);
   }
-  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon || display.showMountPolicy;
+  display.showOrganize = display.showPin || display.showMove || display.showChangeFolderColor || display.showChangeIcon || display.showMountPolicy || display.showRelocate;
   display.showGoToSharedLink =
     targets.length == 1 && display.hasFile && targets[0].metadata && !!targets[0].metadata[Metadata.share_redirect];
   display.showInfo = targets.length == 1 && display.orCapability && canShowInfo(display.orCapability);

@@ -1,4 +1,4 @@
-import { PaginationResults } from "./explorer.ts";
+import { PaginationResults, StoragePolicy } from "./explorer.ts";
 
 export interface ArchiveWorkflowService {
   src: string[];
@@ -95,6 +95,19 @@ export const NodeCapability = {
 export interface RelocateWorkflowService {
   src: string[];
   dst_policy_id: string;
+  delete_source?: boolean;
+}
+
+export interface RelocatePlanResponse {
+  plan: {
+    files: number;
+    folders: number;
+    skipped: number;
+    unsupported: number;
+    encrypted: number;
+    size: number;
+  };
+  policy: StoragePolicy;
 }
 
 export interface DownloadWorkflowService {
@@ -127,6 +140,7 @@ export enum ListTaskCategory {
 export enum TaskType {
   create_archive = "create_archive",
   extract_archive = "extract_archive",
+  relocate = "relocate",
   remote_download = "remote_download",
   media_metadata = "media_meta",
   entity_recycle_routine = "entity_recycle_routine",

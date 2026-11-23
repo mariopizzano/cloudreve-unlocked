@@ -70,6 +70,83 @@ func init() {
 }
 
 type (
+	RelocateWorkflowService struct {
+		Src          []string `json:"src" binding:"required,min=1"`
+		DstPolicyID  string   `json:"dst_policy_id" binding:"required"`
+		DeleteSource bool     `json:"delete_source"`
+	}
+	CreateRelocateParamCtx struct{}
+
+	RelocatePlanResponse struct {
+		Plan   *workflows.RelocatePlan `json:"plan"`
+		Policy *StoragePolicy          `json:"policy"`
+	}
+)
+
+func (service *RelocateWorkflowService) decodePolicy(c *gin.Context) (*ent.StoragePolicy, error) {
+	dep := dependency.FromContext(c)
+	policyID, err := dep.HashIDEncoder().Decode(service.DstPolicyID, hashid.PolicyID)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeParamErr, "Invalid destination policy", err)
+	}
+
+	policy, err := dep.StoragePolicyClient().GetPolicyByID(c, policyID)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeParamErr, "Destination policy not found", err)
+	}
+
+	if policy.Type == "load_balance" {
+		return nil, serializer.NewError(serializer.CodeParamErr, "Load balance policies cannot be used as relocation target", nil)
+	}
+
+	return policy, nil
+}
+
+// PlanRelocate computes a read-only preview of a relocation without touching data.
+func (service *RelocateWorkflowService) PlanRelocate(c *gin.Context) (*RelocatePlanResponse, error) {
+	dep := dependency.FromContext(c)
+	user := inventory.UserFromContext(c)
+
+	policy, err := service.decodePolicy(c)
+	if err != nil {
+		return nil, err
+	}
+
+	plan, err := workflows.PlanRelocate(c, dep, user, service.Src, policy.ID)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeParamErr, "Failed to build relocation plan", err)
+	}
+
+	return &RelocatePlanResponse{
+		Plan:   plan,
+		Policy: BuildStoragePolicy(policy, dep.HashIDEncoder()),
+	}, nil
+}
+
+// CreateRelocateTask queues a relocation task.
+func (service *RelocateWorkflowService) CreateRelocateTask(c *gin.Context) (*TaskResponse, error) {
+	dep := dependency.FromContext(c)
+	user := inventory.UserFromContext(c)
+	hasher := dep.HashIDEncoder()
+
+	policy, err := service.decodePolicy(c)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := workflows.NewRelocateTask(c, user, service.Src, policy.ID, service.DeleteSource)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to create relocation task", err)
+	}
+
+	if err := dep.IoIntenseQueue(c).QueueTask(c, t); err != nil {
+		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to queue relocation task", err)
+	}
+
+	return BuildTaskResponse(t, nil, hasher), nil
+}
+
+type (
 	DownloadWorkflowService struct {
 		Src     []string `json:"src"`
 		SrcFile string   `json:"src_file"`

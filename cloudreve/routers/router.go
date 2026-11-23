@@ -577,6 +577,18 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 				controllers.FromJSON[explorer.ArchiveWorkflowService](explorer.CreateArchiveParamCtx{}),
 				controllers.ExtractArchive,
 			)
+			// Preview a storage policy relocation without moving data
+			wf.POST("relocate/plan",
+				middleware.RequiredScopes(types.ScopeWorkflowWrite),
+				controllers.FromJSON[explorer.RelocateWorkflowService](explorer.CreateRelocateParamCtx{}),
+				controllers.PlanRelocate,
+			)
+			// Create a storage policy relocation task
+			wf.POST("relocate",
+				middleware.RequiredScopes(types.ScopeWorkflowWrite),
+				controllers.FromJSON[explorer.RelocateWorkflowService](explorer.CreateRelocateParamCtx{}),
+				controllers.CreateRelocateTask,
+			)
 
 			remoteDownload := wf.Group("download")
 			{

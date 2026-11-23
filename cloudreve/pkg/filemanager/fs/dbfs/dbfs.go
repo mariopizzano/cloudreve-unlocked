@@ -809,6 +809,12 @@ func (f *DBFS) navigatorId(path *fs.URI) string {
 	}
 }
 
+// GenerateSavePathForPolicy generates a physical save path on the given policy for
+// the provided URI. It is used by relocation workflows.
+func GenerateSavePathForPolicy(policy *ent.StoragePolicy, uri *fs.URI, user *ent.User) string {
+	return generateSavePath(policy, &fs.UploadRequest{Props: &fs.UploadProps{Uri: uri}}, user)
+}
+
 // generateSavePath generates the physical save path for the upload request.
 func generateSavePath(policy *ent.StoragePolicy, req *fs.UploadRequest, user *ent.User) string {
 	currentTime := time.Now()

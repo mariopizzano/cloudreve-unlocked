@@ -20,11 +20,13 @@ Funzionalità implementate:
 - i file esistenti non vengono spostati;
 - visualizzazione della policy effettiva e della policy montata nel pannello dettagli;
 - endpoint `GET/PATCH /api/v4/file/policy`;
-- guardia sull'eliminazione di policy montate su cartelle.
+- guardia sull'eliminazione di policy montate su cartelle;
+- relocation Fase 1: dry-run, file singoli e cartelle, entità primaria, supporto cifratura, `delete_source` opzionale (default false).
 
 Non ancora implementate:
 
-- relocation fisica dei file tra policy;
+- relocation di versioni e thumbnail;
+- cleanup automatico degli oggetti sorgente;
 - load balancer policy;
 - policy multiple per gruppo;
 - policy per directory con regole avanzate.

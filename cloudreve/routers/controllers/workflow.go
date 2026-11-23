@@ -66,3 +66,29 @@ func CancelDownloadTask(c *gin.Context) {
 
 	c.JSON(200, serializer.Response{})
 }
+
+// PlanRelocate returns a read-only preview of a relocation.
+func PlanRelocate(c *gin.Context) {
+	service := ParametersFromContext[*explorer.RelocateWorkflowService](c, explorer.CreateRelocateParamCtx{})
+	resp, err := service.PlanRelocate(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, serializer.Response{Data: resp})
+}
+
+// CreateRelocateTask queues a relocation task.
+func CreateRelocateTask(c *gin.Context) {
+	service := ParametersFromContext[*explorer.RelocateWorkflowService](c, explorer.CreateRelocateParamCtx{})
+	resp, err := service.CreateRelocateTask(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, serializer.Response{Data: resp})
+}

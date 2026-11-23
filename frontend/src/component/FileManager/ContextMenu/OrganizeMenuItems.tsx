@@ -5,7 +5,7 @@ import { CascadingContext, CascadingMenuItem } from "./CascadingMenu.tsx";
 import { useTranslation } from "react-i18next";
 import { useAppDispatch } from "../../../redux/hooks.ts";
 import { closeContextMenu } from "../../../redux/fileManagerSlice.ts";
-import { applyIconColor, dialogBasedMoveCopy, mountStoragePolicy } from "../../../redux/thunks/file.ts";
+import { applyIconColor, dialogBasedMoveCopy, mountStoragePolicy, relocateFiles } from "../../../redux/thunks/file.ts";
 import { ListItemIcon, ListItemText } from "@mui/material";
 import FolderArrowRightOutlined from "../../Icons/FolderArrowRightOutlined.tsx";
 import StorageOutlined from "../../Icons/StorageOutlined.tsx";
@@ -91,6 +91,14 @@ const OrganizeMenuItems = ({ displayOpt, targets }: SubMenuItemsProps) => {
             <StorageOutlined fontSize="small" />
           </ListItemIcon>
           <ListItemText>{t("application:fileManager.mountPolicy")}</ListItemText>
+        </CascadingMenuItem>
+      )}
+      {displayOpt.showRelocate && (
+        <CascadingMenuItem onClick={onClick(() => dispatch(relocateFiles(0, targets)))}>
+          <ListItemIcon>
+            <StorageOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t("application:fileManager.relocatePolicy")}</ListItemText>
         </CascadingMenuItem>
       )}
       {showDivider && <DenseDivider />}
