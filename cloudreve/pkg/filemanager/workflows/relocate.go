@@ -396,7 +396,6 @@ func (m *RelocateTask) relocateEntity(ctx context.Context, dep dependency.Dep, u
 		NewSource:       savePath,
 		StoragePolicyID: dstPolicy.ID,
 		EncryptMetadata: storedMeta,
-		KeepSource:      !m.state.DeleteSource && entity.ReferenceCount() <= 1,
 	}); err != nil {
 		// The physical copy is orphaned; remove it best-effort.
 		if _, delErr := driver.Delete(ctx, savePath); delErr != nil {

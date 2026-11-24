@@ -1,6 +1,6 @@
 # Relocation tra storage policy
 
-Stato: **Fase 2 implementata** (entità primarie, versioni, thumbnail e blob condivisi), con dry-run.
+Stato: **Fase 3 implementata** (entità primarie, versioni, thumbnail, blob condivisi, gestione sorgente e record orfani), con dry-run.
 
 ## Implementato
 
@@ -21,7 +21,7 @@ Stato: **Fase 2 implementata** (entità primarie, versioni, thumbnail e blob con
 ## Limiti attuali
 
 - nessun cleanup automatico degli oggetti trattenuti con `delete_source=false`: l'oggetto resta
-  sulla policy di origine, non più tracciato dal DB dopo il collector, e va rimosso manualmente
+  sulla policy di origine, non più tracciato dal DB, e va rimosso manualmente
 - nessun lock esplicito del file durante il task
 - la policy montata sulla cartella non viene modificata: cambia solo la policy effettiva dei file
 
@@ -36,8 +36,10 @@ Copia a livello di entità + swap nel database:
 5. rimozione della vecchia entità dal DB, oppure decremento del reference count se condivisa;
 6. gestione della sorgente:
    - `delete_source=true`: l'oggetto fisico viene eliminato subito dopo il commit;
-   - `delete_source=false`: l'entità viene marcata `unlink_only`, così il collector rimuove il
-     record dal DB **senza** cancellare l'oggetto fisico (resta sulla policy di origine).
+   - `delete_source=false`: l'oggetto fisico resta sulla policy di origine e non viene più
+     tracciato dal DB (pulizia manuale).
+   In entrambi i casi la vecchia riga entità viene eliminata definitivamente (hard delete), così
+   non restano record orfani che il collector non sarebbe in grado di raccogliere.
 
 ## Test eseguiti
 
@@ -45,12 +47,13 @@ Copia a livello di entità + swap nel database:
 - B2 cifrato → locale non cifrato, sorgente conservata: OK, hash identico al contenuto decifrato originale
 - locale → locale cifrato: OK, download decifrato con hash identico all'originale
 - **B2 cifrato → locale → B2** (Fase 2): versione + thumbnail spostate entrambe, entità primaria aggiornata,
-  vecchie entità soft-deleted, download condiviso HTTP 200 (109.555 byte) in entrambe le direzioni
+  download condiviso HTTP 200 (109.555 byte) in entrambe le direzioni
 - **delete_source=true in entrambe le direzioni**: oggetti B2 e locali di origine rimossi, nessun orfano
   locale residuo, download sempre HTTP 200
-- cleanup manuale degli oggetti locali rimasti dopo il primo test con `delete_source=false`
+- **Fase 3, delete_source=false**: la vecchia entità viene rimossa definitivamente dal DB (hard delete),
+  l'oggetto locale resta su disco dopo il passaggio del collector, download HTTP 200
+- cleanup manuale degli oggetti locali trattenuti e delle vecchie righe di test
 
 ## Prossimi passi
 
-- Fase 3: cleanup sicuro e automatico degli oggetti sorgente e degli orfani
 - Fase 4: audit dettagliato per entità; la UI chiede già se mantenere o eliminare la copia di origine

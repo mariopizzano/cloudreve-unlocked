@@ -144,9 +144,6 @@ type (
 		NewSource       string
 		StoragePolicyID int
 		EncryptMetadata *types.EncryptMetadata
-		// KeepSource marks the old entity as unlink-only, so the entity collector
-		// removes the DB record without deleting the physical object.
-		KeepSource bool
 	}
 
 	CopyParameter struct {
@@ -439,21 +436,10 @@ func (f *fileClient) RelocateEntity(ctx context.Context, fileID int, oldEntityID
 			return nil, fmt.Errorf("failed to decrement old entity reference count: %w", err)
 		}
 	} else {
-		if args.KeepSource {
-			// The relocation must keep the source object on the old policy. Mark the
-			// entity as unlink-only so the entity collector drops the row but leaves
-			// the physical object untouched.
-			props := &types.EntityProps{}
-			if oldEntity.Props != nil {
-				*props = *oldEntity.Props
-			}
-			props.UnlinkOnly = true
-			if err := tx.Entity.UpdateOne(oldEntity).SetProps(props).Exec(ctx); err != nil {
-				return nil, fmt.Errorf("failed to mark old entity as unlink-only: %w", err)
-			}
-		}
-
-		if err := tx.Entity.DeleteOne(oldEntity).Exec(ctx); err != nil {
+		// Hard-delete the old row: a soft-deleted entity is never picked up by the
+		// entity collector, so it would leak forever. The caller handles the
+		// physical object (immediate delete or retention).
+		if err := tx.Entity.DeleteOne(oldEntity).Exec(schema.SkipSoftDelete(ctx)); err != nil {
 			return nil, fmt.Errorf("failed to delete old entity: %w", err)
 		}
 	}
