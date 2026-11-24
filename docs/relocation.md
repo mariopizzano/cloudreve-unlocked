@@ -42,7 +42,9 @@ Copia a livello di entità + swap nel database:
 - locale → locale cifrato: OK, download decifrato con hash identico all'originale
 - **B2 cifrato → locale → B2** (Fase 2): versione + thumbnail spostate entrambe, entità primaria aggiornata,
   vecchie entità soft-deleted, download condiviso HTTP 200 (109.555 byte) in entrambe le direzioni
-- cleanup manuale degli oggetti locali rimasti dopo il ritorno a B2 (`delete_source=false`)
+- **delete_source=true in entrambe le direzioni**: oggetti B2 e locali di origine rimossi, nessun orfano
+  locale residuo, download sempre HTTP 200
+- cleanup manuale degli oggetti locali rimasti dopo il primo test con `delete_source=false`
 
 ## Prossimi passi
 
