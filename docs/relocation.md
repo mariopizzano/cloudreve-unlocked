@@ -20,7 +20,8 @@ Stato: **Fase 2 implementata** (entità primarie, versioni, thumbnail e blob con
 
 ## Limiti attuali
 
-- nessun cleanup automatico di oggetti orfani dopo un errore (solo best-effort della copia appena creata)
+- nessun cleanup automatico degli oggetti trattenuti con `delete_source=false`: l'oggetto resta
+  sulla policy di origine, non più tracciato dal DB dopo il collector, e va rimosso manualmente
 - nessun lock esplicito del file durante il task
 - la policy montata sulla cartella non viene modificata: cambia solo la policy effettiva dei file
 
@@ -33,7 +34,10 @@ Copia a livello di entità + swap nel database:
 3. creazione della nuova entità;
 4. aggiornamento del file (`primary_entity`, `storage_policy_files`) solo per l'entità primaria;
 5. rimozione della vecchia entità dal DB, oppure decremento del reference count se condivisa;
-6. cancellazione fisica della sorgente solo se `delete_source=true` e non condivisa.
+6. gestione della sorgente:
+   - `delete_source=true`: l'oggetto fisico viene eliminato subito dopo il commit;
+   - `delete_source=false`: l'entità viene marcata `unlink_only`, così il collector rimuove il
+     record dal DB **senza** cancellare l'oggetto fisico (resta sulla policy di origine).
 
 ## Test eseguiti
 
