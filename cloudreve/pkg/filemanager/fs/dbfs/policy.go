@@ -69,6 +69,16 @@ func (f *DBFS) MountStoragePolicy(ctx context.Context, uri *fs.URI, policyID int
 		if _, err := f.storagePolicyClient.GetPolicyByID(ctx, policyID); err != nil {
 			return serializer.NewError(serializer.CodePolicyNotExist, "Storage policy not found", err)
 		}
+
+		if owner := target.Owner(); owner != nil && owner.Edges.Group != nil {
+			available, err := f.storagePolicyClient.IsPolicyAvailableToGroup(ctx, owner.Edges.Group, policyID)
+			if err != nil {
+				return serializer.NewError(serializer.CodeDBError, "Failed to validate storage policy", err)
+			}
+			if !available {
+				return serializer.NewError(serializer.CodePolicyNotAllowed, "Storage policy is not available to the folder owner's group", nil)
+			}
+		}
 	}
 
 	// Lock target

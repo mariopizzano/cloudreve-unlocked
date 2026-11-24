@@ -1340,6 +1340,8 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 				{
 					// 获取当前用户设定
 					setting.GET("", controllers.UserSetting)
+					// Get storage policies available to the user's group
+					setting.GET("storage-policy", controllers.UserStoragePolicy)
 					// 从文件上传头像
 					setting.PUT("avatar", middleware.RequiredScopes(types.ScopeUserInfoWrite), controllers.UploadAvatar)
 					// 更改用户设定

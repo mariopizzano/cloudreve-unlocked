@@ -1,5 +1,5 @@
-import { Box, FormControl, SelectChangeEvent, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Box, FormControl, FormHelperText, SelectChangeEvent, Typography } from "@mui/material";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getStoragePolicyList } from "../../../../api/api";
 import { StoragePolicy } from "../../../../api/dashboard";
@@ -8,22 +8,31 @@ import FacebookCircularProgress from "../../../Common/CircularProgress";
 import { DenseSelect, SquareChip } from "../../../Common/StyledComponents";
 import { SquareMenuItem } from "../../../FileManager/ContextMenu/ContextMenu";
 export interface PolicySelectionInputProps {
-  value: number;
-  onChange: (value: number) => void;
+  value: number[];
+  defaultPolicy: number;
+  onChange: (value: number[]) => void;
+  onDefaultChange: (value: number) => void;
 }
 
-const PolicySelectionInput = ({ value, onChange }: PolicySelectionInputProps) => {
+const PolicySelectionInput = ({ value, defaultPolicy, onChange, onDefaultChange }: PolicySelectionInputProps) => {
   const { t } = useTranslation("dashboard");
   const dispatch = useAppDispatch();
   const [policies, setPolicies] = useState<StoragePolicy[]>([]);
   const [loading, setLoading] = useState(false);
   const [policyMap, setPolicyMap] = useState<Record<number, StoragePolicy>>({});
 
+  const selectedPolicies = useMemo(() => {
+    return value.map((id) => policyMap[id]).filter((policy): policy is StoragePolicy => !!policy);
+  }, [value, policyMap]);
+
   const handleChange = (event: SelectChangeEvent<unknown>) => {
-    const {
-      target: { value },
-    } = event;
-    onChange(value as number);
+    const selected = event.target.value;
+    const ids = (Array.isArray(selected) ? selected : [selected]).map((id) => Number(id)).filter((id) => id > 0);
+    onChange(ids);
+  };
+
+  const handleDefaultChange = (event: SelectChangeEvent<unknown>) => {
+    onDefaultChange(Number(event.target.value));
   };
 
   useEffect(() => {
@@ -49,6 +58,7 @@ const PolicySelectionInput = ({ value, onChange }: PolicySelectionInputProps) =>
   return (
     <FormControl fullWidth>
       <DenseSelect
+        multiple
         value={value}
         required
         onChange={handleChange}
@@ -66,10 +76,17 @@ const PolicySelectionInput = ({ value, onChange }: PolicySelectionInputProps) =>
             },
           },
         }}
-        renderValue={(selected: number) => (
+        renderValue={() => (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {!loading ? (
-              <SquareChip size="small" key={selected} label={policyMap[selected]?.name} />
+              selectedPolicies.map((policy) => (
+                <SquareChip
+                  size="small"
+                  key={policy.id}
+                  color={policy.id === defaultPolicy ? "primary" : "default"}
+                  label={policy.name}
+                />
+              ))
             ) : (
               <FacebookCircularProgress size={20} sx={{ mt: "1px" }} />
             )}
@@ -95,6 +112,23 @@ const PolicySelectionInput = ({ value, onChange }: PolicySelectionInputProps) =>
             </SquareMenuItem>
           ))}
       </DenseSelect>
+      <Typography variant={"caption"} color={"textSecondary"} sx={{ mt: 1 }}>
+        {t("group.defaultPolicy")}
+      </Typography>
+      <DenseSelect
+        value={value.includes(defaultPolicy) ? defaultPolicy : ""}
+        required
+        onChange={handleDefaultChange}
+        disabled={loading || value.length === 0}
+        sx={{ mt: 0.5, minHeight: 39 }}
+      >
+        {value.map((id) => (
+          <SquareMenuItem key={id} value={id}>
+            {policyMap[id]?.name ?? id}
+          </SquareMenuItem>
+        ))}
+      </DenseSelect>
+      <FormHelperText>{t("group.defaultPolicyDes")}</FormHelperText>
     </FormControl>
   );
 };

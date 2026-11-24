@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+﻿import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const requiredKeys = {
@@ -19,6 +19,9 @@ const requiredKeys = {
     "setting.relocateEntities",
     "setting.relocateFailed",
     "setting.relocateFailures",
+    "setting.preferredStoragePolicy",
+    "setting.preferredStoragePolicyDes",
+    "setting.storagePolicyGroupDefault",
     "activity.title",
   ],
   common: [
@@ -67,6 +70,8 @@ const requiredDashboardKeys = [
   "policy.loadBalanceWeightDes",
   "policy.loadBalanceMemberRequired",
   "policy.xChildPolicies",
+  "group.defaultPolicy",
+  "group.defaultPolicyDes",
 ];
 
 const locales = ["en-US", "it-IT"];

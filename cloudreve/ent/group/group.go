@@ -36,6 +36,8 @@ const (
 	FieldStoragePolicyID = "storage_policy_id"
 	// EdgeUsers holds the string denoting the users edge name in mutations.
 	EdgeUsers = "users"
+	// EdgeStoragePolicyPool holds the string denoting the storage_policy_pool edge name in mutations.
+	EdgeStoragePolicyPool = "storage_policy_pool"
 	// EdgeStoragePolicies holds the string denoting the storage_policies edge name in mutations.
 	EdgeStoragePolicies = "storage_policies"
 	// Table holds the table name of the group in the database.
@@ -47,6 +49,13 @@ const (
 	UsersInverseTable = "users"
 	// UsersColumn is the table column denoting the users relation/edge.
 	UsersColumn = "group_users"
+	// StoragePolicyPoolTable is the table that holds the storage_policy_pool relation/edge.
+	StoragePolicyPoolTable = "group_storage_policies"
+	// StoragePolicyPoolInverseTable is the table name for the GroupStoragePolicy entity.
+	// It exists in this package in order to avoid circular dependency with the "groupstoragepolicy" package.
+	StoragePolicyPoolInverseTable = "group_storage_policies"
+	// StoragePolicyPoolColumn is the table column denoting the storage_policy_pool relation/edge.
+	StoragePolicyPoolColumn = "group_id"
 	// StoragePoliciesTable is the table that holds the storage_policies relation/edge.
 	StoragePoliciesTable = "groups"
 	// StoragePoliciesInverseTable is the table name for the StoragePolicy entity.
@@ -155,6 +164,20 @@ func ByUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByStoragePolicyPoolCount orders the results by storage_policy_pool count.
+func ByStoragePolicyPoolCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newStoragePolicyPoolStep(), opts...)
+	}
+}
+
+// ByStoragePolicyPool orders the results by storage_policy_pool terms.
+func ByStoragePolicyPool(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newStoragePolicyPoolStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByStoragePoliciesField orders the results by storage_policies field.
 func ByStoragePoliciesField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -166,6 +189,13 @@ func newUsersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsersTable, UsersColumn),
+	)
+}
+func newStoragePolicyPoolStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(StoragePolicyPoolInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, StoragePolicyPoolTable, StoragePolicyPoolColumn),
 	)
 }
 func newStoragePoliciesStep() *sqlgraph.Step {

@@ -15,6 +15,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/metadata"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
@@ -272,6 +273,33 @@ func (f TraverseGroup) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupQuery", q)
+}
+
+// The GroupStoragePolicyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupStoragePolicyFunc func(context.Context, *ent.GroupStoragePolicyQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupStoragePolicyFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupStoragePolicyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupStoragePolicyQuery", q)
+}
+
+// The TraverseGroupStoragePolicy type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupStoragePolicy func(context.Context, *ent.GroupStoragePolicyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupStoragePolicy) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupStoragePolicy) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupStoragePolicyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupStoragePolicyQuery", q)
 }
 
 // The MetadataFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -588,6 +616,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.FsEventQuery, predicate.FsEvent, fsevent.OrderOption]{typ: ent.TypeFsEvent, tq: q}, nil
 	case *ent.GroupQuery:
 		return &query[*ent.GroupQuery, predicate.Group, group.OrderOption]{typ: ent.TypeGroup, tq: q}, nil
+	case *ent.GroupStoragePolicyQuery:
+		return &query[*ent.GroupStoragePolicyQuery, predicate.GroupStoragePolicy, groupstoragepolicy.OrderOption]{typ: ent.TypeGroupStoragePolicy, tq: q}, nil
 	case *ent.MetadataQuery:
 		return &query[*ent.MetadataQuery, predicate.Metadata, metadata.OrderOption]{typ: ent.TypeMetadata, tq: q}, nil
 	case *ent.NodeQuery:

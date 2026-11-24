@@ -12,6 +12,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/metadata"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
@@ -187,6 +188,25 @@ func init() {
 	groupDescSettings := groupFields[4].Descriptor()
 	// group.DefaultSettings holds the default value on creation for the settings field.
 	group.DefaultSettings = groupDescSettings.Default.(*types.GroupSetting)
+	groupstoragepolicyMixin := schema.GroupStoragePolicy{}.Mixin()
+	groupstoragepolicyMixinHooks0 := groupstoragepolicyMixin[0].Hooks()
+	groupstoragepolicy.Hooks[0] = groupstoragepolicyMixinHooks0[0]
+	groupstoragepolicyMixinInters0 := groupstoragepolicyMixin[0].Interceptors()
+	groupstoragepolicy.Interceptors[0] = groupstoragepolicyMixinInters0[0]
+	groupstoragepolicyMixinFields0 := groupstoragepolicyMixin[0].Fields()
+	_ = groupstoragepolicyMixinFields0
+	groupstoragepolicyFields := schema.GroupStoragePolicy{}.Fields()
+	_ = groupstoragepolicyFields
+	// groupstoragepolicyDescCreatedAt is the schema descriptor for created_at field.
+	groupstoragepolicyDescCreatedAt := groupstoragepolicyMixinFields0[0].Descriptor()
+	// groupstoragepolicy.DefaultCreatedAt holds the default value on creation for the created_at field.
+	groupstoragepolicy.DefaultCreatedAt = groupstoragepolicyDescCreatedAt.Default.(func() time.Time)
+	// groupstoragepolicyDescUpdatedAt is the schema descriptor for updated_at field.
+	groupstoragepolicyDescUpdatedAt := groupstoragepolicyMixinFields0[1].Descriptor()
+	// groupstoragepolicy.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	groupstoragepolicy.DefaultUpdatedAt = groupstoragepolicyDescUpdatedAt.Default.(func() time.Time)
+	// groupstoragepolicy.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	groupstoragepolicy.UpdateDefaultUpdatedAt = groupstoragepolicyDescUpdatedAt.UpdateDefault.(func() time.Time)
 	metadataMixin := schema.Metadata{}.Mixin()
 	metadataMixinHooks0 := metadataMixin[0].Hooks()
 	metadata.Hooks[0] = metadataMixinHooks0[0]

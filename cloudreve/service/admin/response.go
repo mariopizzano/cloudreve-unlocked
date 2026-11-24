@@ -74,9 +74,58 @@ type GetNodeResponse struct {
 	*ent.Node
 }
 
+// StoragePolicyBrief is the admin-safe representation of a storage policy used in
+// group responses. It never exposes credentials or provider-specific details.
+type StoragePolicyBrief struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	MaxSize int64  `json:"max_size"`
+}
+
+type GroupEdges struct {
+	StoragePolicies *StoragePolicyBrief `json:"storage_policies,omitempty"`
+}
+
 type GetGroupResponse struct {
 	*ent.Group
-	TotalUsers int `json:"total_users"`
+	// Edges shadows the embedded entity edge so the full ent.StoragePolicy is never
+	// serialized. It keeps the same shape the frontend already consumes.
+	Edges             GroupEdges           `json:"edges"`
+	StoragePolicyPool []StoragePolicyBrief `json:"storage_policy_pool"`
+	TotalUsers        int                  `json:"total_users"`
+}
+
+func BuildStoragePolicyBrief(policy *ent.StoragePolicy) *StoragePolicyBrief {
+	if policy == nil {
+		return nil
+	}
+	return &StoragePolicyBrief{
+		ID:      policy.ID,
+		Name:    policy.Name,
+		Type:    policy.Type,
+		MaxSize: policy.MaxSize,
+	}
+}
+
+func BuildGroupResponse(group *ent.Group, pool []*ent.StoragePolicy) *GetGroupResponse {
+	res := &GetGroupResponse{
+		Group:             group,
+		StoragePolicyPool: make([]StoragePolicyBrief, 0, len(pool)),
+	}
+
+	for _, policy := range pool {
+		res.StoragePolicyPool = append(res.StoragePolicyPool, *BuildStoragePolicyBrief(policy))
+		if policy.ID == group.StoragePolicyID {
+			res.Edges.StoragePolicies = BuildStoragePolicyBrief(policy)
+		}
+	}
+
+	if res.Edges.StoragePolicies == nil && len(pool) > 0 {
+		res.Edges.StoragePolicies = BuildStoragePolicyBrief(pool[0])
+	}
+
+	return res
 }
 
 type OauthCredentialStatus struct {
@@ -112,7 +161,7 @@ type QueueMetric struct {
 }
 
 type ListGroupResponse struct {
-	Groups     []*ent.Group                 `json:"groups"`
+	Groups     []*GetGroupResponse          `json:"groups"`
 	Pagination *inventory.PaginationResults `json:"pagination"`
 }
 

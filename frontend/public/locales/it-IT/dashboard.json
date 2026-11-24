@@ -1241,6 +1241,8 @@
     "nameOfGroupDes": "Nome del gruppo, utilizzato per mostrare agli utenti.",
     "availablePolicies": "Politiche di archiviazione disponibili",
     "availablePoliciesDes": "Seleziona le politiche di archiviazione che questo gruppo può utilizzare. Modificare questa impostazione non influenzerà i file caricati dagli utenti.",
+    "defaultPolicy": "Politica di archiviazione predefinita",
+    "defaultPolicyDes": "Politica usata per i nuovi caricamenti quando l'utente non ha scelto una preferenza.",
     "initialStorageQuota": "Quota di archiviazione iniziale",
     "initialStorageQuotaDes": "Massimo spazio di archiviazione che può essere utilizzato da un singolo utente sotto questo gruppo.",
     "isAdmin": "Gruppo admin",

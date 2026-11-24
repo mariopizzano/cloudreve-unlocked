@@ -48,6 +48,7 @@ export interface GroupEnt extends CommonMixin {
   edges: {
     storage_policies?: StoragePolicy;
   };
+  storage_policy_pool?: StoragePolicy[];
   total_users?: number;
   settings?: GroupSetting;
 }
@@ -390,6 +391,8 @@ export interface FinishOauthCallbackService {
 
 export interface UpsertGroupService {
   group: GroupEnt;
+  storage_policy_pool?: number[];
+  storage_policy_id?: number;
 }
 
 export interface TestNodeService {

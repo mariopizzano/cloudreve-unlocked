@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/cloudreve/Cloudreve/v4/ent"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
 	"github.com/cloudreve/Cloudreve/v4/inventory/types"
 	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
@@ -38,8 +39,18 @@ type (
 
 	StoragePolicyClient interface {
 		TxOperator
-		// GetByGroup returns the storage policies of the group.
+		// GetByGroup returns the default storage policy of the group.
 		GetByGroup(ctx context.Context, group *ent.Group) (*ent.StoragePolicy, error)
+		// GetAvailableByGroup returns the storage policies assigned to the group pool.
+		// When no pool is configured it falls back to the legacy storage_policy_id.
+		GetAvailableByGroup(ctx context.Context, group *ent.Group) ([]*ent.StoragePolicy, error)
+		// GetDefaultByGroup returns the default policy of the group, guaranteed to be
+		// part of the available pool when a pool is configured.
+		GetDefaultByGroup(ctx context.Context, group *ent.Group) (*ent.StoragePolicy, error)
+		// IsPolicyAvailableToGroup reports whether the policy is selectable by the group.
+		IsPolicyAvailableToGroup(ctx context.Context, group *ent.Group, policyID int) (bool, error)
+		// GetSystemDefault returns the global fallback policy (policy 1 when available).
+		GetSystemDefault(ctx context.Context) (*ent.StoragePolicy, error)
 		// GetPolicyByID returns the storage policy by id.
 		GetPolicyByID(ctx context.Context, id int) (*ent.StoragePolicy, error)
 		// UpdateAccessKey updates the access key of the storage policy. It also clear related cache in KV.
@@ -167,6 +178,100 @@ func (c *storagePolicyClient) GetByGroup(ctx context.Context, group *ent.Group) 
 	}
 
 	return res, nil
+}
+
+// GetAvailableByGroup returns the policies assigned to the group through the
+// explicit group_storage_policies join. If the group has no rows in the join (for
+// example on a database that has not been backfilled yet), the legacy
+// storage_policy_id is used as a single-element pool.
+func (c *storagePolicyClient) GetAvailableByGroup(ctx context.Context, group *ent.Group) ([]*ent.StoragePolicy, error) {
+	if group == nil {
+		return nil, nil
+	}
+
+	policies, err := withStoragePolicyEagerLoading(ctx, c.client.StoragePolicy.Query().
+		Where(storagepolicy.HasGroupPolicyPoolWith(groupstoragepolicy.GroupID(group.ID))).
+		Order(ent.Asc(storagepolicy.FieldID))).
+		WithNode().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group storage policies: %w", err)
+	}
+
+	if len(policies) > 0 {
+		return policies, nil
+	}
+
+	if group.StoragePolicyID > 0 {
+		legacy, err := c.GetPolicyByID(ctx, group.StoragePolicyID)
+		if err != nil {
+			return nil, err
+		}
+		return []*ent.StoragePolicy{legacy}, nil
+	}
+
+	return nil, nil
+}
+
+// GetDefaultByGroup returns the group's default policy. The default is always part
+// of the available pool; when it is missing the first pool entry is used.
+func (c *storagePolicyClient) GetDefaultByGroup(ctx context.Context, group *ent.Group) (*ent.StoragePolicy, error) {
+	policies, err := c.GetAvailableByGroup(ctx, group)
+	if err != nil {
+		return nil, err
+	}
+	if len(policies) == 0 {
+		return nil, nil
+	}
+
+	if group.StoragePolicyID > 0 {
+		for _, policy := range policies {
+			if policy.ID == group.StoragePolicyID {
+				return policy, nil
+			}
+		}
+	}
+
+	return policies[0], nil
+}
+
+// IsPolicyAvailableToGroup reports whether the given policy belongs to the group's
+// pool. Groups without an explicit pool keep the legacy single-policy behaviour.
+func (c *storagePolicyClient) IsPolicyAvailableToGroup(ctx context.Context, group *ent.Group, policyID int) (bool, error) {
+	if group == nil || policyID <= 0 {
+		return false, nil
+	}
+
+	policies, err := c.GetAvailableByGroup(ctx, group)
+	if err != nil {
+		return false, err
+	}
+
+	for _, policy := range policies {
+		if policy.ID == policyID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// GetSystemDefault returns the default storage policy used when a group has no
+// usable policy: policy ID 1 when it exists, otherwise the oldest policy.
+func (c *storagePolicyClient) GetSystemDefault(ctx context.Context) (*ent.StoragePolicy, error) {
+	policy, err := c.GetPolicyByID(ctx, 1)
+	if err == nil {
+		return policy, nil
+	}
+
+	policies, listErr := c.client.StoragePolicy.Query().
+		Order(ent.Asc(storagepolicy.FieldID)).
+		First(ctx)
+	if listErr != nil {
+		return nil, fmt.Errorf("failed to get system default storage policy: %w", listErr)
+	}
+
+	return policies, nil
 }
 
 // GetPolicyByID returns the storage policy by id.

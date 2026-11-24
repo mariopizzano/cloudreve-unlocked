@@ -48,6 +48,8 @@ const (
 	FieldNodeID = "node_id"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
+	// EdgeGroupPolicyPool holds the string denoting the group_policy_pool edge name in mutations.
+	EdgeGroupPolicyPool = "group_policy_pool"
 	// EdgeFiles holds the string denoting the files edge name in mutations.
 	EdgeFiles = "files"
 	// EdgeEntities holds the string denoting the entities edge name in mutations.
@@ -63,6 +65,13 @@ const (
 	GroupsInverseTable = "groups"
 	// GroupsColumn is the table column denoting the groups relation/edge.
 	GroupsColumn = "storage_policy_id"
+	// GroupPolicyPoolTable is the table that holds the group_policy_pool relation/edge.
+	GroupPolicyPoolTable = "group_storage_policies"
+	// GroupPolicyPoolInverseTable is the table name for the GroupStoragePolicy entity.
+	// It exists in this package in order to avoid circular dependency with the "groupstoragepolicy" package.
+	GroupPolicyPoolInverseTable = "group_storage_policies"
+	// GroupPolicyPoolColumn is the table column denoting the group_policy_pool relation/edge.
+	GroupPolicyPoolColumn = "policy_id"
 	// FilesTable is the table that holds the files relation/edge.
 	FilesTable = "files"
 	// FilesInverseTable is the table name for the File entity.
@@ -226,6 +235,20 @@ func ByGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByGroupPolicyPoolCount orders the results by group_policy_pool count.
+func ByGroupPolicyPoolCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupPolicyPoolStep(), opts...)
+	}
+}
+
+// ByGroupPolicyPool orders the results by group_policy_pool terms.
+func ByGroupPolicyPool(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupPolicyPoolStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByFilesCount orders the results by files count.
 func ByFilesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -265,6 +288,13 @@ func newGroupsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GroupsTable, GroupsColumn),
+	)
+}
+func newGroupPolicyPoolStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupPolicyPoolInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupPolicyPoolTable, GroupPolicyPoolColumn),
 	)
 }
 func newFilesStep() *sqlgraph.Step {

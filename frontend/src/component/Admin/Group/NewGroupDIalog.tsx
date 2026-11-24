@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { upsertGroup } from "../../../api/api";
-import { GroupEnt } from "../../../api/dashboard";
+import { GroupEnt, StoragePolicy } from "../../../api/dashboard";
 import { GroupPermission } from "../../../api/user";
 import { useAppDispatch } from "../../../redux/hooks";
 import Boolset from "../../../util/boolset";
@@ -38,8 +38,9 @@ const defaultGroup: GroupEnt = {
     redirected_source: true,
   },
   edges: {
-    storage_policies: { id: 1 },
+    storage_policies: { id: 1 } as StoragePolicy,
   },
+  storage_policy_pool: [{ id: 1 } as StoragePolicy],
   id: 0,
 };
 
@@ -73,7 +74,13 @@ const NewGroupDialog = ({ open, onClose }: NewGroupDialogProps) => {
     }
 
     setLoading(true);
-    dispatch(upsertGroup({ group: newGroup }))
+    dispatch(
+      upsertGroup({
+        group: newGroup,
+        storage_policy_pool: (newGroup.storage_policy_pool ?? []).map((p) => p.id),
+        storage_policy_id: newGroup.edges.storage_policies?.id,
+      }),
+    )
       .then((r) => {
         navigate(`/admin/group/${r.id}`);
         onClose();

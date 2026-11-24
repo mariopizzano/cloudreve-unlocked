@@ -81,6 +81,15 @@ func (m *Migrator) migrateGroup() error {
 		if _, err := stm.Save(context.Background()); err != nil {
 			return fmt.Errorf("failed to create group %q: %w", group.Name, err)
 		}
+
+		for _, policyID := range policies {
+			if _, err := m.v4client.GroupStoragePolicy.Create().
+				SetGroupID(int(group.ID)).
+				SetPolicyID(policyID).
+				Save(context.Background()); err != nil {
+				return fmt.Errorf("failed to assign policy %d to group %q: %w", policyID, group.Name, err)
+			}
+		}
 	}
 
 	if m.dep.ConfigProvider().Database().Type == conf.PostgresDB {

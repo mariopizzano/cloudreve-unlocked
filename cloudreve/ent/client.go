@@ -22,6 +22,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/metadata"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
@@ -56,6 +57,8 @@ type Client struct {
 	FsEvent *FsEventClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupStoragePolicy is the client for interacting with the GroupStoragePolicy builders.
+	GroupStoragePolicy *GroupStoragePolicyClient
 	// Metadata is the client for interacting with the Metadata builders.
 	Metadata *MetadataClient
 	// Node is the client for interacting with the Node builders.
@@ -96,6 +99,7 @@ func (c *Client) init() {
 	c.File = NewFileClient(c.config)
 	c.FsEvent = NewFsEventClient(c.config)
 	c.Group = NewGroupClient(c.config)
+	c.GroupStoragePolicy = NewGroupStoragePolicyClient(c.config)
 	c.Metadata = NewMetadataClient(c.config)
 	c.Node = NewNodeClient(c.config)
 	c.OAuthClient = NewOAuthClientClient(c.config)
@@ -197,26 +201,27 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		Activity:       NewActivityClient(cfg),
-		DavAccount:     NewDavAccountClient(cfg),
-		DirectLink:     NewDirectLinkClient(cfg),
-		Entity:         NewEntityClient(cfg),
-		File:           NewFileClient(cfg),
-		FsEvent:        NewFsEventClient(cfg),
-		Group:          NewGroupClient(cfg),
-		Metadata:       NewMetadataClient(cfg),
-		Node:           NewNodeClient(cfg),
-		OAuthClient:    NewOAuthClientClient(cfg),
-		OAuthGrant:     NewOAuthGrantClient(cfg),
-		Passkey:        NewPasskeyClient(cfg),
-		RetainedObject: NewRetainedObjectClient(cfg),
-		Setting:        NewSettingClient(cfg),
-		Share:          NewShareClient(cfg),
-		StoragePolicy:  NewStoragePolicyClient(cfg),
-		Task:           NewTaskClient(cfg),
-		User:           NewUserClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Activity:           NewActivityClient(cfg),
+		DavAccount:         NewDavAccountClient(cfg),
+		DirectLink:         NewDirectLinkClient(cfg),
+		Entity:             NewEntityClient(cfg),
+		File:               NewFileClient(cfg),
+		FsEvent:            NewFsEventClient(cfg),
+		Group:              NewGroupClient(cfg),
+		GroupStoragePolicy: NewGroupStoragePolicyClient(cfg),
+		Metadata:           NewMetadataClient(cfg),
+		Node:               NewNodeClient(cfg),
+		OAuthClient:        NewOAuthClientClient(cfg),
+		OAuthGrant:         NewOAuthGrantClient(cfg),
+		Passkey:            NewPasskeyClient(cfg),
+		RetainedObject:     NewRetainedObjectClient(cfg),
+		Setting:            NewSettingClient(cfg),
+		Share:              NewShareClient(cfg),
+		StoragePolicy:      NewStoragePolicyClient(cfg),
+		Task:               NewTaskClient(cfg),
+		User:               NewUserClient(cfg),
 	}, nil
 }
 
@@ -234,26 +239,27 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		Activity:       NewActivityClient(cfg),
-		DavAccount:     NewDavAccountClient(cfg),
-		DirectLink:     NewDirectLinkClient(cfg),
-		Entity:         NewEntityClient(cfg),
-		File:           NewFileClient(cfg),
-		FsEvent:        NewFsEventClient(cfg),
-		Group:          NewGroupClient(cfg),
-		Metadata:       NewMetadataClient(cfg),
-		Node:           NewNodeClient(cfg),
-		OAuthClient:    NewOAuthClientClient(cfg),
-		OAuthGrant:     NewOAuthGrantClient(cfg),
-		Passkey:        NewPasskeyClient(cfg),
-		RetainedObject: NewRetainedObjectClient(cfg),
-		Setting:        NewSettingClient(cfg),
-		Share:          NewShareClient(cfg),
-		StoragePolicy:  NewStoragePolicyClient(cfg),
-		Task:           NewTaskClient(cfg),
-		User:           NewUserClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Activity:           NewActivityClient(cfg),
+		DavAccount:         NewDavAccountClient(cfg),
+		DirectLink:         NewDirectLinkClient(cfg),
+		Entity:             NewEntityClient(cfg),
+		File:               NewFileClient(cfg),
+		FsEvent:            NewFsEventClient(cfg),
+		Group:              NewGroupClient(cfg),
+		GroupStoragePolicy: NewGroupStoragePolicyClient(cfg),
+		Metadata:           NewMetadataClient(cfg),
+		Node:               NewNodeClient(cfg),
+		OAuthClient:        NewOAuthClientClient(cfg),
+		OAuthGrant:         NewOAuthGrantClient(cfg),
+		Passkey:            NewPasskeyClient(cfg),
+		RetainedObject:     NewRetainedObjectClient(cfg),
+		Setting:            NewSettingClient(cfg),
+		Share:              NewShareClient(cfg),
+		StoragePolicy:      NewStoragePolicyClient(cfg),
+		Task:               NewTaskClient(cfg),
+		User:               NewUserClient(cfg),
 	}, nil
 }
 
@@ -284,8 +290,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Activity, c.DavAccount, c.DirectLink, c.Entity, c.File, c.FsEvent, c.Group,
-		c.Metadata, c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.RetainedObject,
-		c.Setting, c.Share, c.StoragePolicy, c.Task, c.User,
+		c.GroupStoragePolicy, c.Metadata, c.Node, c.OAuthClient, c.OAuthGrant,
+		c.Passkey, c.RetainedObject, c.Setting, c.Share, c.StoragePolicy, c.Task,
+		c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -296,8 +303,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Activity, c.DavAccount, c.DirectLink, c.Entity, c.File, c.FsEvent, c.Group,
-		c.Metadata, c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.RetainedObject,
-		c.Setting, c.Share, c.StoragePolicy, c.Task, c.User,
+		c.GroupStoragePolicy, c.Metadata, c.Node, c.OAuthClient, c.OAuthGrant,
+		c.Passkey, c.RetainedObject, c.Setting, c.Share, c.StoragePolicy, c.Task,
+		c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -320,6 +328,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.FsEvent.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
+	case *GroupStoragePolicyMutation:
+		return c.GroupStoragePolicy.mutate(ctx, m)
 	case *MetadataMutation:
 		return c.Metadata.mutate(ctx, m)
 	case *NodeMutation:
@@ -1504,6 +1514,22 @@ func (c *GroupClient) QueryUsers(gr *Group) *UserQuery {
 	return query
 }
 
+// QueryStoragePolicyPool queries the storage_policy_pool edge of a Group.
+func (c *GroupClient) QueryStoragePolicyPool(gr *Group) *GroupStoragePolicyQuery {
+	query := (&GroupStoragePolicyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := gr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(groupstoragepolicy.Table, groupstoragepolicy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.StoragePolicyPoolTable, group.StoragePolicyPoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryStoragePolicies queries the storage_policies edge of a Group.
 func (c *GroupClient) QueryStoragePolicies(gr *Group) *StoragePolicyQuery {
 	query := (&StoragePolicyClient{config: c.config}).Query()
@@ -1544,6 +1570,173 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Group mutation op: %q", m.Op())
+	}
+}
+
+// GroupStoragePolicyClient is a client for the GroupStoragePolicy schema.
+type GroupStoragePolicyClient struct {
+	config
+}
+
+// NewGroupStoragePolicyClient returns a client for the GroupStoragePolicy from the given config.
+func NewGroupStoragePolicyClient(c config) *GroupStoragePolicyClient {
+	return &GroupStoragePolicyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupstoragepolicy.Hooks(f(g(h())))`.
+func (c *GroupStoragePolicyClient) Use(hooks ...Hook) {
+	c.hooks.GroupStoragePolicy = append(c.hooks.GroupStoragePolicy, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupstoragepolicy.Intercept(f(g(h())))`.
+func (c *GroupStoragePolicyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupStoragePolicy = append(c.inters.GroupStoragePolicy, interceptors...)
+}
+
+// Create returns a builder for creating a GroupStoragePolicy entity.
+func (c *GroupStoragePolicyClient) Create() *GroupStoragePolicyCreate {
+	mutation := newGroupStoragePolicyMutation(c.config, OpCreate)
+	return &GroupStoragePolicyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupStoragePolicy entities.
+func (c *GroupStoragePolicyClient) CreateBulk(builders ...*GroupStoragePolicyCreate) *GroupStoragePolicyCreateBulk {
+	return &GroupStoragePolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupStoragePolicyClient) MapCreateBulk(slice any, setFunc func(*GroupStoragePolicyCreate, int)) *GroupStoragePolicyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupStoragePolicyCreateBulk{err: fmt.Errorf("calling to GroupStoragePolicyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupStoragePolicyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupStoragePolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupStoragePolicy.
+func (c *GroupStoragePolicyClient) Update() *GroupStoragePolicyUpdate {
+	mutation := newGroupStoragePolicyMutation(c.config, OpUpdate)
+	return &GroupStoragePolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupStoragePolicyClient) UpdateOne(gsp *GroupStoragePolicy) *GroupStoragePolicyUpdateOne {
+	mutation := newGroupStoragePolicyMutation(c.config, OpUpdateOne, withGroupStoragePolicy(gsp))
+	return &GroupStoragePolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupStoragePolicyClient) UpdateOneID(id int) *GroupStoragePolicyUpdateOne {
+	mutation := newGroupStoragePolicyMutation(c.config, OpUpdateOne, withGroupStoragePolicyID(id))
+	return &GroupStoragePolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupStoragePolicy.
+func (c *GroupStoragePolicyClient) Delete() *GroupStoragePolicyDelete {
+	mutation := newGroupStoragePolicyMutation(c.config, OpDelete)
+	return &GroupStoragePolicyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupStoragePolicyClient) DeleteOne(gsp *GroupStoragePolicy) *GroupStoragePolicyDeleteOne {
+	return c.DeleteOneID(gsp.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupStoragePolicyClient) DeleteOneID(id int) *GroupStoragePolicyDeleteOne {
+	builder := c.Delete().Where(groupstoragepolicy.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupStoragePolicyDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupStoragePolicy.
+func (c *GroupStoragePolicyClient) Query() *GroupStoragePolicyQuery {
+	return &GroupStoragePolicyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupStoragePolicy},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupStoragePolicy entity by its id.
+func (c *GroupStoragePolicyClient) Get(ctx context.Context, id int) (*GroupStoragePolicy, error) {
+	return c.Query().Where(groupstoragepolicy.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupStoragePolicyClient) GetX(ctx context.Context, id int) *GroupStoragePolicy {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryGroup queries the group edge of a GroupStoragePolicy.
+func (c *GroupStoragePolicyClient) QueryGroup(gsp *GroupStoragePolicy) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := gsp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupstoragepolicy.Table, groupstoragepolicy.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupstoragepolicy.GroupTable, groupstoragepolicy.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(gsp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStoragePolicy queries the storage_policy edge of a GroupStoragePolicy.
+func (c *GroupStoragePolicyClient) QueryStoragePolicy(gsp *GroupStoragePolicy) *StoragePolicyQuery {
+	query := (&StoragePolicyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := gsp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupstoragepolicy.Table, groupstoragepolicy.FieldID, id),
+			sqlgraph.To(storagepolicy.Table, storagepolicy.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupstoragepolicy.StoragePolicyTable, groupstoragepolicy.StoragePolicyColumn),
+		)
+		fromV = sqlgraph.Neighbors(gsp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupStoragePolicyClient) Hooks() []Hook {
+	hooks := c.hooks.GroupStoragePolicy
+	return append(hooks[:len(hooks):len(hooks)], groupstoragepolicy.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupStoragePolicyClient) Interceptors() []Interceptor {
+	inters := c.inters.GroupStoragePolicy
+	return append(inters[:len(inters):len(inters)], groupstoragepolicy.Interceptors[:]...)
+}
+
+func (c *GroupStoragePolicyClient) mutate(ctx context.Context, m *GroupStoragePolicyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupStoragePolicyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupStoragePolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupStoragePolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupStoragePolicyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupStoragePolicy mutation op: %q", m.Op())
 	}
 }
 
@@ -2879,6 +3072,22 @@ func (c *StoragePolicyClient) QueryGroups(sp *StoragePolicy) *GroupQuery {
 	return query
 }
 
+// QueryGroupPolicyPool queries the group_policy_pool edge of a StoragePolicy.
+func (c *StoragePolicyClient) QueryGroupPolicyPool(sp *StoragePolicy) *GroupStoragePolicyQuery {
+	query := (&GroupStoragePolicyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(storagepolicy.Table, storagepolicy.FieldID, id),
+			sqlgraph.To(groupstoragepolicy.Table, groupstoragepolicy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, storagepolicy.GroupPolicyPoolTable, storagepolicy.GroupPolicyPoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(sp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryFiles queries the files edge of a StoragePolicy.
 func (c *StoragePolicyClient) QueryFiles(sp *StoragePolicy) *FileQuery {
 	query := (&FileClient{config: c.config}).Query()
@@ -3387,14 +3596,14 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Activity, DavAccount, DirectLink, Entity, File, FsEvent, Group, Metadata, Node,
-		OAuthClient, OAuthGrant, Passkey, RetainedObject, Setting, Share,
-		StoragePolicy, Task, User []ent.Hook
+		Activity, DavAccount, DirectLink, Entity, File, FsEvent, Group,
+		GroupStoragePolicy, Metadata, Node, OAuthClient, OAuthGrant, Passkey,
+		RetainedObject, Setting, Share, StoragePolicy, Task, User []ent.Hook
 	}
 	inters struct {
-		Activity, DavAccount, DirectLink, Entity, File, FsEvent, Group, Metadata, Node,
-		OAuthClient, OAuthGrant, Passkey, RetainedObject, Setting, Share,
-		StoragePolicy, Task, User []ent.Interceptor
+		Activity, DavAccount, DirectLink, Entity, File, FsEvent, Group,
+		GroupStoragePolicy, Metadata, Node, OAuthClient, OAuthGrant, Passkey,
+		RetainedObject, Setting, Share, StoragePolicy, Task, User []ent.Interceptor
 	}
 )
 

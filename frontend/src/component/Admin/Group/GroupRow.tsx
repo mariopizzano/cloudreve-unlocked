@@ -138,14 +138,21 @@ const GroupRow = ({ group, loading, onDelete }: GroupRowProps) => {
       </NoWrapTableCell>
       <NoWrapTableCell>
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-          {group?.edges.storage_policies && (
-            <SquareChip
-              onClick={onPolicyClick(group.edges.storage_policies.id)}
-              key={group.edges.storage_policies.id}
-              label={group.edges.storage_policies.name}
-              size="small"
-            />
-          )}
+          {(group?.storage_policy_pool ??
+            (group?.edges.storage_policies ? [group.edges.storage_policies] : [])
+          ).map((policy) => (
+            <Tooltip
+              key={policy.id}
+              title={policy.id === group?.edges.storage_policies?.id ? t("group.defaultPolicy") : policy.name}
+            >
+              <SquareChip
+                onClick={onPolicyClick(policy.id)}
+                label={policy.name}
+                size="small"
+                color={policy.id === group?.edges.storage_policies?.id ? "primary" : "default"}
+              />
+            </Tooltip>
+          ))}
         </Box>
       </NoWrapTableCell>
       <NoWrapTableCell>

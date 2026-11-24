@@ -105,6 +105,7 @@ export interface UserSettings {
   disable_view_sync: boolean;
   share_links_in_profile: ShareLinksInProfileLevel;
   oauth_grants?: OAuthGrant[];
+  preferred_policy?: string;
 }
 
 export interface OAuthGrant {
@@ -128,6 +129,7 @@ export interface PatchUserSetting {
   two_fa_code?: string;
   disable_view_sync?: boolean;
   share_links_in_profile?: ShareLinksInProfileLevel;
+  preferred_policy?: string;
 }
 
 export interface PasskeyCredentialOption {

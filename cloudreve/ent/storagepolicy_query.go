@@ -14,6 +14,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/entity"
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
@@ -22,14 +23,15 @@ import (
 // StoragePolicyQuery is the builder for querying StoragePolicy entities.
 type StoragePolicyQuery struct {
 	config
-	ctx          *QueryContext
-	order        []storagepolicy.OrderOption
-	inters       []Interceptor
-	predicates   []predicate.StoragePolicy
-	withGroups   *GroupQuery
-	withFiles    *FileQuery
-	withEntities *EntityQuery
-	withNode     *NodeQuery
+	ctx                 *QueryContext
+	order               []storagepolicy.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.StoragePolicy
+	withGroups          *GroupQuery
+	withGroupPolicyPool *GroupStoragePolicyQuery
+	withFiles           *FileQuery
+	withEntities        *EntityQuery
+	withNode            *NodeQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -81,6 +83,28 @@ func (spq *StoragePolicyQuery) QueryGroups() *GroupQuery {
 			sqlgraph.From(storagepolicy.Table, storagepolicy.FieldID, selector),
 			sqlgraph.To(group.Table, group.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, storagepolicy.GroupsTable, storagepolicy.GroupsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupPolicyPool chains the current query on the "group_policy_pool" edge.
+func (spq *StoragePolicyQuery) QueryGroupPolicyPool() *GroupStoragePolicyQuery {
+	query := (&GroupStoragePolicyClient{config: spq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := spq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := spq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(storagepolicy.Table, storagepolicy.FieldID, selector),
+			sqlgraph.To(groupstoragepolicy.Table, groupstoragepolicy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, storagepolicy.GroupPolicyPoolTable, storagepolicy.GroupPolicyPoolColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
 		return fromU, nil
@@ -341,15 +365,16 @@ func (spq *StoragePolicyQuery) Clone() *StoragePolicyQuery {
 		return nil
 	}
 	return &StoragePolicyQuery{
-		config:       spq.config,
-		ctx:          spq.ctx.Clone(),
-		order:        append([]storagepolicy.OrderOption{}, spq.order...),
-		inters:       append([]Interceptor{}, spq.inters...),
-		predicates:   append([]predicate.StoragePolicy{}, spq.predicates...),
-		withGroups:   spq.withGroups.Clone(),
-		withFiles:    spq.withFiles.Clone(),
-		withEntities: spq.withEntities.Clone(),
-		withNode:     spq.withNode.Clone(),
+		config:              spq.config,
+		ctx:                 spq.ctx.Clone(),
+		order:               append([]storagepolicy.OrderOption{}, spq.order...),
+		inters:              append([]Interceptor{}, spq.inters...),
+		predicates:          append([]predicate.StoragePolicy{}, spq.predicates...),
+		withGroups:          spq.withGroups.Clone(),
+		withGroupPolicyPool: spq.withGroupPolicyPool.Clone(),
+		withFiles:           spq.withFiles.Clone(),
+		withEntities:        spq.withEntities.Clone(),
+		withNode:            spq.withNode.Clone(),
 		// clone intermediate query.
 		sql:  spq.sql.Clone(),
 		path: spq.path,
@@ -364,6 +389,17 @@ func (spq *StoragePolicyQuery) WithGroups(opts ...func(*GroupQuery)) *StoragePol
 		opt(query)
 	}
 	spq.withGroups = query
+	return spq
+}
+
+// WithGroupPolicyPool tells the query-builder to eager-load the nodes that are connected to
+// the "group_policy_pool" edge. The optional arguments are used to configure the query builder of the edge.
+func (spq *StoragePolicyQuery) WithGroupPolicyPool(opts ...func(*GroupStoragePolicyQuery)) *StoragePolicyQuery {
+	query := (&GroupStoragePolicyClient{config: spq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	spq.withGroupPolicyPool = query
 	return spq
 }
 
@@ -478,8 +514,9 @@ func (spq *StoragePolicyQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 	var (
 		nodes       = []*StoragePolicy{}
 		_spec       = spq.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			spq.withGroups != nil,
+			spq.withGroupPolicyPool != nil,
 			spq.withFiles != nil,
 			spq.withEntities != nil,
 			spq.withNode != nil,
@@ -507,6 +544,15 @@ func (spq *StoragePolicyQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 		if err := spq.loadGroups(ctx, query, nodes,
 			func(n *StoragePolicy) { n.Edges.Groups = []*Group{} },
 			func(n *StoragePolicy, e *Group) { n.Edges.Groups = append(n.Edges.Groups, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := spq.withGroupPolicyPool; query != nil {
+		if err := spq.loadGroupPolicyPool(ctx, query, nodes,
+			func(n *StoragePolicy) { n.Edges.GroupPolicyPool = []*GroupStoragePolicy{} },
+			func(n *StoragePolicy, e *GroupStoragePolicy) {
+				n.Edges.GroupPolicyPool = append(n.Edges.GroupPolicyPool, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -558,6 +604,36 @@ func (spq *StoragePolicyQuery) loadGroups(ctx context.Context, query *GroupQuery
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "storage_policy_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (spq *StoragePolicyQuery) loadGroupPolicyPool(ctx context.Context, query *GroupStoragePolicyQuery, nodes []*StoragePolicy, init func(*StoragePolicy), assign func(*StoragePolicy, *GroupStoragePolicy)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*StoragePolicy)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupstoragepolicy.FieldPolicyID)
+	}
+	query.Where(predicate.GroupStoragePolicy(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(storagepolicy.GroupPolicyPoolColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.PolicyID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "policy_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

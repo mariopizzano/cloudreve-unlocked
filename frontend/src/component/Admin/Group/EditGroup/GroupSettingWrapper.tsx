@@ -33,13 +33,17 @@ export const GroupSettingContext = createContext<GroupSettingContextProps>({
 });
 
 const groupValueFilter = (group: GroupEnt): GroupEnt => {
+  const pool = group.storage_policy_pool ?? [];
+  const defaultID = group.edges.storage_policies?.id ?? pool[0]?.id ?? 0;
+  const normalizedPool =
+    pool.length > 0 ? pool : defaultID > 0 ? ([{ id: defaultID } as StoragePolicy] as StoragePolicy[]) : [];
+
   return {
     ...group,
     edges: {
-      storage_policies: {
-        id: group.edges.storage_policies?.id ?? 0,
-      } as StoragePolicy,
+      storage_policies: defaultID > 0 ? ({ id: defaultID } as StoragePolicy) : undefined,
     },
+    storage_policy_pool: normalizedPool,
   };
 };
 
@@ -89,6 +93,8 @@ const GroupSettingWrapper = ({ groupID, children, onGroupChange }: GroupSettingW
     dispatch(
       upsertGroup({
         group: { ...modifiedValues },
+        storage_policy_pool: (modifiedValues.storage_policy_pool ?? []).map((p) => p.id),
+        storage_policy_id: modifiedValues.edges.storage_policies?.id,
       }),
     )
       .then((res) => {

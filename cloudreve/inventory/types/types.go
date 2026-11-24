@@ -17,6 +17,9 @@ type (
 		DisableViewSync     bool                     `json:"disable_view_sync,omitempty"`
 		FsViewMap           map[string]ExplorerView  `json:"fs_view_map,omitempty"`
 		ShareLinksInProfile ShareLinksInProfileLevel `json:"share_links_in_profile,omitempty"`
+		// PreferredPolicy is the storage policy selected by the user for new uploads.
+		// It is validated against the group pool at upload time.
+		PreferredPolicy int `json:"preferred_policy,omitempty"`
 	}
 
 	ShareLinksInProfileLevel string

@@ -137,7 +137,7 @@ func GetUserSettings(c *gin.Context) (*UserSettings, error) {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get user OAuth grants", err)
 	}
 
-	return BuildUserSettings(u, passkeys, dep.UAParser(), grants), nil
+	return BuildUserSettings(u, passkeys, dep.UAParser(), grants, dep.HashIDEncoder()), nil
 
 	// 用户组有效期
 
@@ -230,6 +230,7 @@ type (
 		TwoFACode               *string   `json:"two_fa_code" binding:"omitempty"`
 		DisableViewSync         *bool     `json:"disable_view_sync" binding:"omitempty"`
 		ShareLinksInProfile     *string   `json:"share_links_in_profile" binding:"omitempty"`
+		PreferredPolicy         *string   `json:"preferred_policy" binding:"omitempty"`
 	}
 	PatchUserSettingParamsCtx struct{}
 )
@@ -278,6 +279,36 @@ func (s *PatchUserSetting) Patch(c *gin.Context) error {
 
 	if s.ShareLinksInProfile != nil {
 		u.Settings.ShareLinksInProfile = types.ShareLinksInProfileLevel(*s.ShareLinksInProfile)
+		saveSetting = true
+	}
+
+	if s.PreferredPolicy != nil {
+		policyID := 0
+		if *s.PreferredPolicy != "" {
+			decoded, err := dep.HashIDEncoder().Decode(*s.PreferredPolicy, hashid.PolicyID)
+			if err != nil {
+				return serializer.NewError(serializer.CodeParamErr, "Unknown storage policy ID", err)
+			}
+			policyID = decoded
+		}
+
+		if policyID > 0 {
+			loadCtx := context.WithValue(c, inventory.LoadUserGroup{}, true)
+			withGroup, err := userClient.GetByID(loadCtx, u.ID)
+			if err != nil {
+				return serializer.NewError(serializer.CodeDBError, "Failed to load user group", err)
+			}
+
+			available, err := dep.StoragePolicyClient().GetAvailableByGroup(c, withGroup.Edges.Group)
+			if err != nil {
+				return serializer.NewError(serializer.CodeDBError, "Failed to validate storage policy", err)
+			}
+			if !containsPolicy(available, policyID) {
+				return serializer.NewError(serializer.CodePolicyNotAllowed, "Storage policy is not available to your group", nil)
+			}
+		}
+
+		u.Settings.PreferredPolicy = policyID
 		saveSetting = true
 	}
 
@@ -334,4 +365,14 @@ func (s *PatchUserSetting) Patch(c *gin.Context) error {
 	}
 
 	return nil
+}
+
+// containsPolicy reports whether a storage policy ID belongs to the given pool.
+func containsPolicy(policies []*ent.StoragePolicy, policyID int) bool {
+	for _, policy := range policies {
+		if policy.ID == policyID {
+			return true
+		}
+	}
+	return false
 }

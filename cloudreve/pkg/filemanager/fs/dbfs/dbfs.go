@@ -676,7 +676,11 @@ func (f *DBFS) generateEncryptMetadata(ctx context.Context, uploadRequest *fs.Up
 // getPreferredPolicy tries to get the preferred storage policy for the given file.
 // For existing files, the policy already attached to the file is kept. For folders,
 // the closest ancestor folder with a mounted storage policy wins. If no policy is
-// mounted, the default policy of the owner's group is used.
+// mounted, the user's preferred policy (when still part of the owner group's pool)
+// is used, then the group default and finally the system default.
+//
+// A load_balance policy is returned as configured here: resolving it to a concrete
+// member only happens in PrepareUpload, when a new upload is actually created.
 func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.StoragePolicy, error) {
 	// Existing files keep the policy they were uploaded with.
 	if file.Type() == types.FileTypeFile && file.Model.StoragePolicyFiles > 0 {
@@ -685,6 +689,7 @@ func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.Storage
 
 	// Walk up from the target (included, when it is a folder) to the root and use the
 	// closest mounted storage policy.
+	var mounted *ent.StoragePolicy
 	for _, candidate := range file.AncestorsChain() {
 		if candidate.Type() != types.FileTypeFolder || candidate.Model.StoragePolicyFiles <= 0 {
 			continue
@@ -696,21 +701,73 @@ func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.Storage
 			continue
 		}
 
-		return policy, nil
+		mounted = policy
+		break
+	}
+	if mounted != nil {
+		return mounted, nil
 	}
 
-	ownerGroup := file.Owner().Edges.Group
-	if ownerGroup == nil {
+	// Uploads into shared folders use the owner's group pool.
+	owner := file.Owner()
+	if owner == nil || owner.Edges.Group == nil {
 		return nil, fmt.Errorf("owner group not loaded")
 	}
+	ownerGroup := owner.Edges.Group
 
 	sc, _ := inventory.InheritTx(ctx, f.storagePolicyClient)
-	groupPolicy, err := sc.GetByGroup(ctx, ownerGroup)
+	available, err := sc.GetAvailableByGroup(ctx, ownerGroup)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get available storage policies", err)
 	}
 
-	return groupPolicy, nil
+	// A stale preference is ignored silently.
+	var preferred *ent.StoragePolicy
+	if f.user != nil && f.user.Settings != nil && f.user.Settings.PreferredPolicy > 0 {
+		preferredID := f.user.Settings.PreferredPolicy
+		for _, policy := range available {
+			if policy.ID == preferredID {
+				preferred = policy
+				break
+			}
+		}
+	}
+
+	var groupDefault *ent.StoragePolicy
+	if ownerGroup.StoragePolicyID > 0 {
+		for _, policy := range available {
+			if policy.ID == ownerGroup.StoragePolicyID {
+				groupDefault = policy
+				break
+			}
+		}
+	}
+	if groupDefault == nil && len(available) > 0 {
+		groupDefault = available[0]
+	}
+
+	systemDefault, err := sc.GetSystemDefault(ctx)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get system default storage policy", err)
+	}
+
+	policy := choosePreferredPolicy(mounted, preferred, groupDefault, systemDefault)
+	if policy == nil {
+		return nil, serializer.NewError(serializer.CodePolicyNotAllowed, "No storage policy is available", nil)
+	}
+
+	return policy, nil
+}
+
+// choosePreferredPolicy applies the upload policy precedence. Mounted policies win,
+// followed by a valid user preference, the group default and the system default.
+func choosePreferredPolicy(mounted, preferred, groupDefault, systemDefault *ent.StoragePolicy) *ent.StoragePolicy {
+	for _, candidate := range []*ent.StoragePolicy{mounted, preferred, groupDefault, systemDefault} {
+		if candidate != nil {
+			return candidate
+		}
+	}
+	return nil
 }
 
 // resolveLoadBalancePolicy replaces a virtual load_balance policy with a concrete member

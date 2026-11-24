@@ -1243,6 +1243,8 @@
     "nameOfGroupDes": "Name of the group, used to display to users.",
     "availablePolicies": "Available storage policies",
     "availablePoliciesDes": "Select the storage policies that this group can use. Modifying this setting will not affect the files uploaded by users.",
+    "defaultPolicy": "Default storage policy",
+    "defaultPolicyDes": "Storage policy used for new uploads when the user has not selected a preferred one.",
     "availablePolicyDesPro": "Multi-selectable, users can freely switch storage policies within the selected range.",
     "initialStorageQuota": "Initial storage quota",
     "initialStorageQuotaDes": "Max storage can used by single user under this group.",

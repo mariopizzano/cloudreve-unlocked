@@ -49,11 +49,13 @@ type Group struct {
 type GroupEdges struct {
 	// Users holds the value of the users edge.
 	Users []*User `json:"users,omitempty"`
+	// StoragePolicyPool holds the value of the storage_policy_pool edge.
+	StoragePolicyPool []*GroupStoragePolicy `json:"storage_policy_pool,omitempty"`
 	// StoragePolicies holds the value of the storage_policies edge.
 	StoragePolicies *StoragePolicy `json:"storage_policies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // UsersOrErr returns the Users value or an error if the edge
@@ -65,10 +67,19 @@ func (e GroupEdges) UsersOrErr() ([]*User, error) {
 	return nil, &NotLoadedError{edge: "users"}
 }
 
+// StoragePolicyPoolOrErr returns the StoragePolicyPool value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupEdges) StoragePolicyPoolOrErr() ([]*GroupStoragePolicy, error) {
+	if e.loadedTypes[1] {
+		return e.StoragePolicyPool, nil
+	}
+	return nil, &NotLoadedError{edge: "storage_policy_pool"}
+}
+
 // StoragePoliciesOrErr returns the StoragePolicies value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e GroupEdges) StoragePoliciesOrErr() (*StoragePolicy, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		if e.StoragePolicies == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: storagepolicy.Label}
@@ -189,6 +200,11 @@ func (gr *Group) QueryUsers() *UserQuery {
 	return NewGroupClient(gr.config).QueryUsers(gr)
 }
 
+// QueryStoragePolicyPool queries the "storage_policy_pool" edge of the Group entity.
+func (gr *Group) QueryStoragePolicyPool() *GroupStoragePolicyQuery {
+	return NewGroupClient(gr.config).QueryStoragePolicyPool(gr)
+}
+
 // QueryStoragePolicies queries the "storage_policies" edge of the Group entity.
 func (gr *Group) QueryStoragePolicies() *StoragePolicyQuery {
 	return NewGroupClient(gr.config).QueryStoragePolicies(gr)
@@ -255,10 +271,16 @@ func (e *Group) SetUsers(v []*User) {
 	e.Edges.loadedTypes[0] = true
 }
 
+// SetStoragePolicyPool manually set the edge as loaded state.
+func (e *Group) SetStoragePolicyPool(v []*GroupStoragePolicy) {
+	e.Edges.StoragePolicyPool = v
+	e.Edges.loadedTypes[1] = true
+}
+
 // SetStoragePolicies manually set the edge as loaded state.
 func (e *Group) SetStoragePolicies(v *StoragePolicy) {
 	e.Edges.StoragePolicies = v
-	e.Edges.loadedTypes[1] = true
+	e.Edges.loadedTypes[2] = true
 }
 
 // Groups is a parsable slice of Group.

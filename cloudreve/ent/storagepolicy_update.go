@@ -14,6 +14,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/entity"
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
@@ -301,6 +302,21 @@ func (spu *StoragePolicyUpdate) AddGroups(g ...*Group) *StoragePolicyUpdate {
 	return spu.AddGroupIDs(ids...)
 }
 
+// AddGroupPolicyPoolIDs adds the "group_policy_pool" edge to the GroupStoragePolicy entity by IDs.
+func (spu *StoragePolicyUpdate) AddGroupPolicyPoolIDs(ids ...int) *StoragePolicyUpdate {
+	spu.mutation.AddGroupPolicyPoolIDs(ids...)
+	return spu
+}
+
+// AddGroupPolicyPool adds the "group_policy_pool" edges to the GroupStoragePolicy entity.
+func (spu *StoragePolicyUpdate) AddGroupPolicyPool(g ...*GroupStoragePolicy) *StoragePolicyUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return spu.AddGroupPolicyPoolIDs(ids...)
+}
+
 // AddFileIDs adds the "files" edge to the File entity by IDs.
 func (spu *StoragePolicyUpdate) AddFileIDs(ids ...int) *StoragePolicyUpdate {
 	spu.mutation.AddFileIDs(ids...)
@@ -360,6 +376,27 @@ func (spu *StoragePolicyUpdate) RemoveGroups(g ...*Group) *StoragePolicyUpdate {
 		ids[i] = g[i].ID
 	}
 	return spu.RemoveGroupIDs(ids...)
+}
+
+// ClearGroupPolicyPool clears all "group_policy_pool" edges to the GroupStoragePolicy entity.
+func (spu *StoragePolicyUpdate) ClearGroupPolicyPool() *StoragePolicyUpdate {
+	spu.mutation.ClearGroupPolicyPool()
+	return spu
+}
+
+// RemoveGroupPolicyPoolIDs removes the "group_policy_pool" edge to GroupStoragePolicy entities by IDs.
+func (spu *StoragePolicyUpdate) RemoveGroupPolicyPoolIDs(ids ...int) *StoragePolicyUpdate {
+	spu.mutation.RemoveGroupPolicyPoolIDs(ids...)
+	return spu
+}
+
+// RemoveGroupPolicyPool removes "group_policy_pool" edges to GroupStoragePolicy entities.
+func (spu *StoragePolicyUpdate) RemoveGroupPolicyPool(g ...*GroupStoragePolicy) *StoragePolicyUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return spu.RemoveGroupPolicyPoolIDs(ids...)
 }
 
 // ClearFiles clears all "files" edges to the File entity.
@@ -571,6 +608,51 @@ func (spu *StoragePolicyUpdate) sqlSave(ctx context.Context) (n int, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if spu.mutation.GroupPolicyPoolCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spu.mutation.RemovedGroupPolicyPoolIDs(); len(nodes) > 0 && !spu.mutation.GroupPolicyPoolCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spu.mutation.GroupPolicyPoolIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -985,6 +1067,21 @@ func (spuo *StoragePolicyUpdateOne) AddGroups(g ...*Group) *StoragePolicyUpdateO
 	return spuo.AddGroupIDs(ids...)
 }
 
+// AddGroupPolicyPoolIDs adds the "group_policy_pool" edge to the GroupStoragePolicy entity by IDs.
+func (spuo *StoragePolicyUpdateOne) AddGroupPolicyPoolIDs(ids ...int) *StoragePolicyUpdateOne {
+	spuo.mutation.AddGroupPolicyPoolIDs(ids...)
+	return spuo
+}
+
+// AddGroupPolicyPool adds the "group_policy_pool" edges to the GroupStoragePolicy entity.
+func (spuo *StoragePolicyUpdateOne) AddGroupPolicyPool(g ...*GroupStoragePolicy) *StoragePolicyUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return spuo.AddGroupPolicyPoolIDs(ids...)
+}
+
 // AddFileIDs adds the "files" edge to the File entity by IDs.
 func (spuo *StoragePolicyUpdateOne) AddFileIDs(ids ...int) *StoragePolicyUpdateOne {
 	spuo.mutation.AddFileIDs(ids...)
@@ -1044,6 +1141,27 @@ func (spuo *StoragePolicyUpdateOne) RemoveGroups(g ...*Group) *StoragePolicyUpda
 		ids[i] = g[i].ID
 	}
 	return spuo.RemoveGroupIDs(ids...)
+}
+
+// ClearGroupPolicyPool clears all "group_policy_pool" edges to the GroupStoragePolicy entity.
+func (spuo *StoragePolicyUpdateOne) ClearGroupPolicyPool() *StoragePolicyUpdateOne {
+	spuo.mutation.ClearGroupPolicyPool()
+	return spuo
+}
+
+// RemoveGroupPolicyPoolIDs removes the "group_policy_pool" edge to GroupStoragePolicy entities by IDs.
+func (spuo *StoragePolicyUpdateOne) RemoveGroupPolicyPoolIDs(ids ...int) *StoragePolicyUpdateOne {
+	spuo.mutation.RemoveGroupPolicyPoolIDs(ids...)
+	return spuo
+}
+
+// RemoveGroupPolicyPool removes "group_policy_pool" edges to GroupStoragePolicy entities.
+func (spuo *StoragePolicyUpdateOne) RemoveGroupPolicyPool(g ...*GroupStoragePolicy) *StoragePolicyUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return spuo.RemoveGroupPolicyPoolIDs(ids...)
 }
 
 // ClearFiles clears all "files" edges to the File entity.
@@ -1285,6 +1403,51 @@ func (spuo *StoragePolicyUpdateOne) sqlSave(ctx context.Context) (_node *Storage
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if spuo.mutation.GroupPolicyPoolCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spuo.mutation.RemovedGroupPolicyPoolIDs(); len(nodes) > 0 && !spuo.mutation.GroupPolicyPoolCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spuo.mutation.GroupPolicyPoolIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

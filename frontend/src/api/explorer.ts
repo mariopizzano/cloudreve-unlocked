@@ -136,6 +136,13 @@ export interface StoragePolicyMountResponse {
   policies: StoragePolicy[];
 }
 
+export interface UserStoragePolicyResponse {
+  policies: StoragePolicy[];
+  default?: StoragePolicy;
+  preferred?: StoragePolicy;
+  effective?: StoragePolicy;
+}
+
 export interface PaginationResults {
   page: number;
   page_size: number;

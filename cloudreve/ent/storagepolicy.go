@@ -60,6 +60,8 @@ type StoragePolicy struct {
 type StoragePolicyEdges struct {
 	// Groups holds the value of the groups edge.
 	Groups []*Group `json:"groups,omitempty"`
+	// GroupPolicyPool holds the value of the group_policy_pool edge.
+	GroupPolicyPool []*GroupStoragePolicy `json:"group_policy_pool,omitempty"`
 	// Files holds the value of the files edge.
 	Files []*File `json:"files,omitempty"`
 	// Entities holds the value of the entities edge.
@@ -68,7 +70,7 @@ type StoragePolicyEdges struct {
 	Node *Node `json:"node,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
@@ -80,10 +82,19 @@ func (e StoragePolicyEdges) GroupsOrErr() ([]*Group, error) {
 	return nil, &NotLoadedError{edge: "groups"}
 }
 
+// GroupPolicyPoolOrErr returns the GroupPolicyPool value or an error if the edge
+// was not loaded in eager-loading.
+func (e StoragePolicyEdges) GroupPolicyPoolOrErr() ([]*GroupStoragePolicy, error) {
+	if e.loadedTypes[1] {
+		return e.GroupPolicyPool, nil
+	}
+	return nil, &NotLoadedError{edge: "group_policy_pool"}
+}
+
 // FilesOrErr returns the Files value or an error if the edge
 // was not loaded in eager-loading.
 func (e StoragePolicyEdges) FilesOrErr() ([]*File, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.Files, nil
 	}
 	return nil, &NotLoadedError{edge: "files"}
@@ -92,7 +103,7 @@ func (e StoragePolicyEdges) FilesOrErr() ([]*File, error) {
 // EntitiesOrErr returns the Entities value or an error if the edge
 // was not loaded in eager-loading.
 func (e StoragePolicyEdges) EntitiesOrErr() ([]*Entity, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Entities, nil
 	}
 	return nil, &NotLoadedError{edge: "entities"}
@@ -101,7 +112,7 @@ func (e StoragePolicyEdges) EntitiesOrErr() ([]*Entity, error) {
 // NodeOrErr returns the Node value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e StoragePolicyEdges) NodeOrErr() (*Node, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		if e.Node == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: node.Label}
@@ -258,6 +269,11 @@ func (sp *StoragePolicy) QueryGroups() *GroupQuery {
 	return NewStoragePolicyClient(sp.config).QueryGroups(sp)
 }
 
+// QueryGroupPolicyPool queries the "group_policy_pool" edge of the StoragePolicy entity.
+func (sp *StoragePolicy) QueryGroupPolicyPool() *GroupStoragePolicyQuery {
+	return NewStoragePolicyClient(sp.config).QueryGroupPolicyPool(sp)
+}
+
 // QueryFiles queries the "files" edge of the StoragePolicy entity.
 func (sp *StoragePolicy) QueryFiles() *FileQuery {
 	return NewStoragePolicyClient(sp.config).QueryFiles(sp)
@@ -352,22 +368,28 @@ func (e *StoragePolicy) SetGroups(v []*Group) {
 	e.Edges.loadedTypes[0] = true
 }
 
+// SetGroupPolicyPool manually set the edge as loaded state.
+func (e *StoragePolicy) SetGroupPolicyPool(v []*GroupStoragePolicy) {
+	e.Edges.GroupPolicyPool = v
+	e.Edges.loadedTypes[1] = true
+}
+
 // SetFiles manually set the edge as loaded state.
 func (e *StoragePolicy) SetFiles(v []*File) {
 	e.Edges.Files = v
-	e.Edges.loadedTypes[1] = true
+	e.Edges.loadedTypes[2] = true
 }
 
 // SetEntities manually set the edge as loaded state.
 func (e *StoragePolicy) SetEntities(v []*Entity) {
 	e.Edges.Entities = v
-	e.Edges.loadedTypes[2] = true
+	e.Edges.loadedTypes[3] = true
 }
 
 // SetNode manually set the edge as loaded state.
 func (e *StoragePolicy) SetNode(v *Node) {
 	e.Edges.Node = v
-	e.Edges.loadedTypes[3] = true
+	e.Edges.loadedTypes[4] = true
 }
 
 // StoragePolicies is a parsable slice of StoragePolicy.

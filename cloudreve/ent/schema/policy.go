@@ -48,6 +48,7 @@ func (StoragePolicy) Mixin() []ent.Mixin {
 func (StoragePolicy) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("groups", Group.Type),
+		edge.To("group_policy_pool", GroupStoragePolicy.Type),
 		edge.To("files", File.Type),
 		edge.To("entities", Entity.Type),
 		edge.From("node", Node.Type).

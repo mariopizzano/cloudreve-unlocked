@@ -33,10 +33,11 @@ type UserSettings struct {
 	DisableViewSync         bool         `json:"disable_view_sync"`
 	ShareLinksInProfile     string       `json:"share_links_in_profile"`
 	OAuthGrants             []OauthGrant `json:"oauth_grants,omitempty"`
+	PreferredPolicy         string       `json:"preferred_policy,omitempty"`
 }
 
-func BuildUserSettings(u *ent.User, passkeys []*ent.Passkey, parser *uaparser.Parser, grants []*ent.OAuthGrant) *UserSettings {
-	return &UserSettings{
+func BuildUserSettings(u *ent.User, passkeys []*ent.Passkey, parser *uaparser.Parser, grants []*ent.OAuthGrant, hasher hashid.Encoder) *UserSettings {
+	res := &UserSettings{
 		VersionRetentionEnabled: u.Settings.VersionRetention,
 		VersionRetentionExt:     u.Settings.VersionRetentionExt,
 		VersionRetentionMax:     u.Settings.VersionRetentionMax,
@@ -51,6 +52,12 @@ func BuildUserSettings(u *ent.User, passkeys []*ent.Passkey, parser *uaparser.Pa
 			return BuildOauthGrant(item)
 		}),
 	}
+
+	if u.Settings.PreferredPolicy > 0 && hasher != nil {
+		res.PreferredPolicy = hashid.EncodePolicyID(hasher, u.Settings.PreferredPolicy)
+	}
+
+	return res
 }
 
 type Passkey struct {

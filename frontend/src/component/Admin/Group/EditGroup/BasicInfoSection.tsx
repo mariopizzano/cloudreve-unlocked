@@ -7,7 +7,7 @@ import Boolset from "../../../../util/boolset";
 import SizeInput from "../../../Common/SizeInput";
 import { DenseFilledTextField } from "../../../Common/StyledComponents";
 import InPrivate from "../../../Icons/InPrivate";
-import SettingForm, { ProChip } from "../../../Pages/Setting/SettingForm";
+import SettingForm from "../../../Pages/Setting/SettingForm";
 import { NoMarginHelperText, SettingSection, SettingSectionContent } from "../../Settings/Settings";
 import { AnonymousGroupID } from "../GroupRow";
 import { GroupSettingContext } from "./GroupSettingWrapper";
@@ -27,7 +27,34 @@ const BasicInfoSection = () => {
     [setGroup],
   );
 
+  const currentPool = useMemo(() => {
+    const ids = (values.storage_policy_pool ?? []).map((p) => p.id);
+    const defaultID = values.edges.storage_policies?.id;
+    if (ids.length === 0 && defaultID) {
+      return [defaultID];
+    }
+    if (defaultID && !ids.includes(defaultID)) {
+      return [...ids, defaultID];
+    }
+    return ids;
+  }, [values.storage_policy_pool, values.edges.storage_policies?.id]);
+
   const onPolicyChange = useCallback(
+    (value: number[]) => {
+      setGroup((p: GroupEnt) => {
+        const currentDefault = p.edges.storage_policies?.id ?? 0;
+        const nextDefault = value.includes(currentDefault) ? currentDefault : (value[0] ?? 0);
+        return {
+          ...p,
+          edges: { ...p.edges, storage_policies: { id: nextDefault } as StoragePolicy },
+          storage_policy_pool: value.map((id) => ({ id }) as StoragePolicy),
+        };
+      });
+    },
+    [setGroup],
+  );
+
+  const onDefaultPolicyChange = useCallback(
     (value: number) => {
       setGroup((p: GroupEnt) => ({
         ...p,
@@ -79,11 +106,13 @@ const BasicInfoSection = () => {
         {values?.id != AnonymousGroupID && (
           <>
             <SettingForm title={t("group.availablePolicies")} lgWidth={5}>
-              <PolicySelectionInput value={values.edges.storage_policies?.id ?? 0} onChange={onPolicyChange} />
+              <PolicySelectionInput
+                value={currentPool}
+                defaultPolicy={values.edges.storage_policies?.id ?? 0}
+                onChange={onPolicyChange}
+                onDefaultChange={onDefaultPolicyChange}
+              />
               <NoMarginHelperText>{t("group.availablePoliciesDes")}</NoMarginHelperText>
-              <NoMarginHelperText>
-                <ProChip size="small" label="Pro" sx={{ ml: 0 }} /> {t("group.availablePolicyDesPro")}
-              </NoMarginHelperText>
             </SettingForm>
             <SettingForm title={t("group.initialStorageQuota")} lgWidth={5}>
               <FormControl fullWidth>

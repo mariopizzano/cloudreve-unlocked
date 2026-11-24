@@ -83,6 +83,16 @@ func (service *SingleStoragePolicyService) Delete(c *gin.Context) error {
 		return serializer.NewError(serializer.CodePolicyUsedByGroups, strconv.Itoa(len(policy.Edges.Groups)), nil)
 	}
 
+	// The policy can also be referenced only from a group's policy pool without being
+	// its legacy default.
+	poolUsage, err := dep.GroupClient().CountGroupsUsingPolicy(ctx, service.ID)
+	if err != nil {
+		return serializer.NewError(serializer.CodeDBError, "Failed to check group storage policy pool usage", err)
+	}
+	if poolUsage > 0 {
+		return serializer.NewError(serializer.CodePolicyUsedByGroups, strconv.Itoa(poolUsage), nil)
+	}
+
 	used, err := dep.FileClient().IsStoragePolicyUsedByEntities(ctx, service.ID)
 	if err != nil {
 		return serializer.NewError(serializer.CodeDBError, "Failed to check if policy is used by entities", err)

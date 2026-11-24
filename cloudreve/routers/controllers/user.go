@@ -8,6 +8,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
 	"github.com/cloudreve/Cloudreve/v4/pkg/util"
 	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
+	"github.com/cloudreve/Cloudreve/v4/service/explorer"
 	"github.com/cloudreve/Cloudreve/v4/service/share"
 	"github.com/cloudreve/Cloudreve/v4/service/user"
 	"github.com/gin-gonic/gin"
@@ -265,6 +266,18 @@ func UserSetting(c *gin.Context) {
 	c.JSON(200, serializer.Response{
 		Data: res,
 	})
+}
+
+// UserStoragePolicy returns the storage policies available to the current user.
+func UserStoragePolicy(c *gin.Context) {
+	service := &explorer.GetUserStoragePolicyService{}
+	res, err := service.Get(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+
+	c.JSON(200, serializer.Response{Data: res})
 }
 
 // UploadAvatar 从文件上传头像

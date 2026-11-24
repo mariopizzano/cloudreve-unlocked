@@ -259,6 +259,42 @@ var (
 			},
 		},
 	}
+	// GroupStoragePoliciesColumns holds the columns for the "group_storage_policies" table.
+	GroupStoragePoliciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "group_id", Type: field.TypeInt},
+		{Name: "policy_id", Type: field.TypeInt},
+	}
+	// GroupStoragePoliciesTable holds the schema information for the "group_storage_policies" table.
+	GroupStoragePoliciesTable = &schema.Table{
+		Name:       "group_storage_policies",
+		Columns:    GroupStoragePoliciesColumns,
+		PrimaryKey: []*schema.Column{GroupStoragePoliciesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_storage_policies_groups_storage_policy_pool",
+				Columns:    []*schema.Column{GroupStoragePoliciesColumns[4]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_storage_policies_storage_policies_group_policy_pool",
+				Columns:    []*schema.Column{GroupStoragePoliciesColumns[5]},
+				RefColumns: []*schema.Column{StoragePoliciesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupstoragepolicy_group_id_policy_id",
+				Unique:  true,
+				Columns: []*schema.Column{GroupStoragePoliciesColumns[4], GroupStoragePoliciesColumns[5]},
+			},
+		},
+	}
 	// MetadataColumns holds the columns for the "metadata" table.
 	MetadataColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -613,6 +649,7 @@ var (
 		FilesTable,
 		FsEventsTable,
 		GroupsTable,
+		GroupStoragePoliciesTable,
 		MetadataTable,
 		NodesTable,
 		OauthClientsTable,
@@ -638,6 +675,8 @@ func init() {
 	FilesTable.ForeignKeys[2].RefTable = UsersTable
 	FsEventsTable.ForeignKeys[0].RefTable = UsersTable
 	GroupsTable.ForeignKeys[0].RefTable = StoragePoliciesTable
+	GroupStoragePoliciesTable.ForeignKeys[0].RefTable = GroupsTable
+	GroupStoragePoliciesTable.ForeignKeys[1].RefTable = StoragePoliciesTable
 	MetadataTable.ForeignKeys[0].RefTable = FilesTable
 	OauthGrantsTable.ForeignKeys[0].RefTable = OauthClientsTable
 	OauthGrantsTable.ForeignKeys[1].RefTable = UsersTable

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent"
 	"github.com/cloudreve/Cloudreve/v4/ent/activity"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	entmigrate "github.com/cloudreve/Cloudreve/v4/ent/migrate"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
@@ -51,6 +52,10 @@ func migrate(l logging.Logger, client *ent.Client, ctx context.Context, kv cache
 		return fmt.Errorf("failed migrating default storage policy: %w", err)
 	}
 
+	if err := migrateGroupStoragePolicies(client, ctx); err != nil {
+		return fmt.Errorf("failed migrating group storage policy pool: %w", err)
+	}
+
 	if err := migrateOAuthClient(l, client, ctx); err != nil {
 		return fmt.Errorf("failed migrating OAuth client: %w", err)
 	}
@@ -76,6 +81,60 @@ func migrateRetainedObjects(client *ent.Client, ctx context.Context) error {
 
 	if err := entmigrate.Create(ctx, client.Schema, tables); err != nil {
 		return fmt.Errorf("failed to migrate retained objects schema: %w", err)
+	}
+
+	return nil
+}
+
+// migrateGroupStoragePolicies creates the additive group_storage_policies join table
+// on databases whose version marker is already current and backfills it from the
+// legacy groups.storage_policy_id value. It is safe to run multiple times.
+func migrateGroupStoragePolicies(client *ent.Client, ctx context.Context) error {
+	// The join table has foreign keys to groups and storage_policies, so they must be
+	// part of the same Create call. Creating an already existing table is a no-op.
+	tables := lo.Filter(entmigrate.Tables, func(t *schema.Table, _ int) bool {
+		switch t.Name {
+		case groupstoragepolicy.Table, group.Table, storagepolicy.Table, node.Table:
+			return true
+		default:
+			return false
+		}
+	})
+	if len(tables) == 0 {
+		return nil
+	}
+
+	if err := entmigrate.Create(ctx, client.Schema, tables); err != nil {
+		return fmt.Errorf("failed to migrate group storage policy schema: %w", err)
+	}
+
+	groups, err := client.Group.Query().
+		Where(group.StoragePolicyIDNEQ(0)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list groups for policy pool backfill: %w", err)
+	}
+
+	for _, g := range groups {
+		exists, err := client.GroupStoragePolicy.Query().
+			Where(
+				groupstoragepolicy.GroupID(g.ID),
+				groupstoragepolicy.PolicyID(g.StoragePolicyID),
+			).
+			Exist(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check group policy pool: %w", err)
+		}
+		if exists {
+			continue
+		}
+
+		if _, err := client.GroupStoragePolicy.Create().
+			SetGroupID(g.ID).
+			SetPolicyID(g.StoragePolicyID).
+			Save(ctx); err != nil {
+			return fmt.Errorf("failed to backfill group policy pool: %w", err)
+		}
 	}
 
 	return nil

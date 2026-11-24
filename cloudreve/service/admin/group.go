@@ -105,9 +105,18 @@ func (s *AdminListService) List(c *gin.Context) (*ListGroupResponse, error) {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to list groups", err)
 	}
 
+	groups := make([]*GetGroupResponse, 0, len(res.Groups))
+	for _, group := range res.Groups {
+		pool, err := dep.StoragePolicyClient().GetAvailableByGroup(ctx, group)
+		if err != nil {
+			return nil, serializer.NewError(serializer.CodeDBError, "Failed to get group storage policies", err)
+		}
+		groups = append(groups, BuildGroupResponse(group, pool))
+	}
+
 	return &ListGroupResponse{
 		Pagination: res.PaginationResults,
-		Groups:     res.Groups,
+		Groups:     groups,
 	}, nil
 }
 
@@ -132,7 +141,12 @@ func (s *SingleGroupService) Get(c *gin.Context) (*GetGroupResponse, error) {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get group", err)
 	}
 
-	res := &GetGroupResponse{Group: group}
+	pool, err := dep.StoragePolicyClient().GetAvailableByGroup(ctx, group)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get group storage policies", err)
+	}
+
+	res := BuildGroupResponse(group, pool)
 
 	if c.Query(countUserQuery) != "" {
 		totalUsers, err := groupClient.CountUsers(ctx, int(s.ID))
@@ -148,6 +162,10 @@ func (s *SingleGroupService) Get(c *gin.Context) (*GetGroupResponse, error) {
 type (
 	UpsertGroupService struct {
 		Group *ent.Group `json:"group" binding:"required"`
+		// StoragePolicyPool is the list of storage policies available to the group.
+		StoragePolicyPool []int `json:"storage_policy_pool"`
+		// StoragePolicyID optionally overrides the default policy sent in group.edges.
+		StoragePolicyID int `json:"storage_policy_id"`
 	}
 	UpsertGroupParamCtx struct{}
 )
@@ -165,13 +183,41 @@ func (s *UpsertGroupService) Update(c *gin.Context) (*GetGroupResponse, error) {
 		return nil, serializer.NewError(serializer.CodeParamErr, "Initial admin group have to be admin", nil)
 	}
 
-	group, err := groupClient.Upsert(c, s.Group)
+	group, err := groupClient.Upsert(c, s.Group, s.normalizedPool())
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to update group", err)
 	}
 
 	service := &SingleGroupService{ID: group.ID}
 	return service.Get(c)
+}
+
+// normalizedPool resolves the default policy override and keeps backward
+// compatibility with clients that only send group.edges.storage_policies.
+func (s *UpsertGroupService) normalizedPool() []int {
+	defaultID := 0
+	if s.StoragePolicyID > 0 {
+		defaultID = s.StoragePolicyID
+	} else if s.Group.Edges.StoragePolicies != nil {
+		defaultID = s.Group.Edges.StoragePolicies.ID
+	}
+
+	if s.StoragePolicyID > 0 {
+		if s.Group.Edges.StoragePolicies == nil {
+			s.Group.Edges.StoragePolicies = &ent.StoragePolicy{}
+		}
+		s.Group.Edges.StoragePolicies.ID = s.StoragePolicyID
+	}
+
+	if s.StoragePolicyPool != nil {
+		return s.StoragePolicyPool
+	}
+
+	if defaultID > 0 {
+		return []int{defaultID}
+	}
+
+	return nil
 }
 
 func (s *UpsertGroupService) Create(c *gin.Context) (*GetGroupResponse, error) {
@@ -182,7 +228,7 @@ func (s *UpsertGroupService) Create(c *gin.Context) (*GetGroupResponse, error) {
 		return nil, serializer.NewError(serializer.CodeParamErr, "ID must be 0", nil)
 	}
 
-	group, err := groupClient.Upsert(c, s.Group)
+	group, err := groupClient.Upsert(c, s.Group, s.normalizedPool())
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to create group", err)
 	}

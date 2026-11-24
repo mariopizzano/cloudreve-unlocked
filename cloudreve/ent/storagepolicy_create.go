@@ -14,6 +14,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/entity"
 	"github.com/cloudreve/Cloudreve/v4/ent/file"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
 	"github.com/cloudreve/Cloudreve/v4/inventory/types"
@@ -228,6 +229,21 @@ func (spc *StoragePolicyCreate) AddGroups(g ...*Group) *StoragePolicyCreate {
 	return spc.AddGroupIDs(ids...)
 }
 
+// AddGroupPolicyPoolIDs adds the "group_policy_pool" edge to the GroupStoragePolicy entity by IDs.
+func (spc *StoragePolicyCreate) AddGroupPolicyPoolIDs(ids ...int) *StoragePolicyCreate {
+	spc.mutation.AddGroupPolicyPoolIDs(ids...)
+	return spc
+}
+
+// AddGroupPolicyPool adds the "group_policy_pool" edges to the GroupStoragePolicy entity.
+func (spc *StoragePolicyCreate) AddGroupPolicyPool(g ...*GroupStoragePolicy) *StoragePolicyCreate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return spc.AddGroupPolicyPoolIDs(ids...)
+}
+
 // AddFileIDs adds the "files" edge to the File entity by IDs.
 func (spc *StoragePolicyCreate) AddFileIDs(ids ...int) *StoragePolicyCreate {
 	spc.mutation.AddFileIDs(ids...)
@@ -434,6 +450,22 @@ func (spc *StoragePolicyCreate) createSpec() (*StoragePolicy, *sqlgraph.CreateSp
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := spc.mutation.GroupPolicyPoolIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   storagepolicy.GroupPolicyPoolTable,
+			Columns: []string{storagepolicy.GroupPolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

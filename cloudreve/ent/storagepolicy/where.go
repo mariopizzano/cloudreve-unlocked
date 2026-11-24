@@ -968,6 +968,29 @@ func HasGroupsWith(preds ...predicate.Group) predicate.StoragePolicy {
 	})
 }
 
+// HasGroupPolicyPool applies the HasEdge predicate on the "group_policy_pool" edge.
+func HasGroupPolicyPool() predicate.StoragePolicy {
+	return predicate.StoragePolicy(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupPolicyPoolTable, GroupPolicyPoolColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupPolicyPoolWith applies the HasEdge predicate on the "group_policy_pool" edge with a given conditions (other predicates).
+func HasGroupPolicyPoolWith(preds ...predicate.GroupStoragePolicy) predicate.StoragePolicy {
+	return predicate.StoragePolicy(func(s *sql.Selector) {
+		step := newGroupPolicyPoolStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasFiles applies the HasEdge predicate on the "files" edge.
 func HasFiles() predicate.StoragePolicy {
 	return predicate.StoragePolicy(func(s *sql.Selector) {

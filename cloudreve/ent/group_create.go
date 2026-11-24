@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	"github.com/cloudreve/Cloudreve/v4/ent/groupstoragepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
 	"github.com/cloudreve/Cloudreve/v4/ent/user"
 	"github.com/cloudreve/Cloudreve/v4/inventory/types"
@@ -141,6 +142,21 @@ func (gc *GroupCreate) AddUsers(u ...*User) *GroupCreate {
 		ids[i] = u[i].ID
 	}
 	return gc.AddUserIDs(ids...)
+}
+
+// AddStoragePolicyPoolIDs adds the "storage_policy_pool" edge to the GroupStoragePolicy entity by IDs.
+func (gc *GroupCreate) AddStoragePolicyPoolIDs(ids ...int) *GroupCreate {
+	gc.mutation.AddStoragePolicyPoolIDs(ids...)
+	return gc
+}
+
+// AddStoragePolicyPool adds the "storage_policy_pool" edges to the GroupStoragePolicy entity.
+func (gc *GroupCreate) AddStoragePolicyPool(g ...*GroupStoragePolicy) *GroupCreate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return gc.AddStoragePolicyPoolIDs(ids...)
 }
 
 // SetStoragePoliciesID sets the "storage_policies" edge to the StoragePolicy entity by ID.
@@ -309,6 +325,22 @@ func (gc *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := gc.mutation.StoragePolicyPoolIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.StoragePolicyPoolTable,
+			Columns: []string{group.StoragePolicyPoolColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupstoragepolicy.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

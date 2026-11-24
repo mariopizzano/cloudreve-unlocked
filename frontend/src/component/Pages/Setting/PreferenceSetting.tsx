@@ -7,6 +7,7 @@ import {
   FormControl,
   FormHelperText,
   ListItemText,
+  SelectChangeEvent,
   Stack,
   styled,
   ToggleButton,
@@ -18,7 +19,8 @@ import {
 import i18next from "i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { sendUpdateUserSetting } from "../../../api/api.ts";
+import { getUserStoragePolicies, sendUpdateUserSetting } from "../../../api/api.ts";
+import { UserStoragePolicyResponse } from "../../../api/explorer.ts";
 import { UserSettings as UserSettingsType } from "../../../api/user.ts";
 import { languages } from "../../../i18n.ts";
 import { setPreferredTheme } from "../../../redux/globalStateSlice.ts";
@@ -85,6 +87,32 @@ const PreferenceSetting = ({ setting, setSetting }: PreferenceSettingProps) => {
   const [folderClickAction, setFolderClickAction] = useState(
     SessionManager.getWithFallback(UserSettings.FolderClickAction),
   );
+  const [policyInfo, setPolicyInfo] = useState<UserStoragePolicyResponse | undefined>(undefined);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
+  useEffect(() => {
+    dispatch(getUserStoragePolicies())
+      .then((res) => setPolicyInfo(res))
+      .catch(() => undefined);
+  }, [dispatch]);
+
+  const onPreferredPolicyChange = (e: SelectChangeEvent<unknown>) => {
+    const policyID = e.target.value as string;
+    setPolicyLoading(true);
+    dispatch(sendUpdateUserSetting({ preferred_policy: policyID }))
+      .then(() => {
+        setSetting({ ...setting, preferred_policy: policyID || undefined });
+        setPolicyInfo((current) =>
+          current
+            ? {
+                ...current,
+                preferred: current.policies.find((policy) => policy.id === policyID),
+              }
+            : current,
+        );
+      })
+      .finally(() => setPolicyLoading(false));
+  };
 
   const onRetentionCheckChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setVersionRetentionEnabled(e.target.checked);
@@ -210,6 +238,27 @@ const PreferenceSetting = ({ setting, setSetting }: PreferenceSettingProps) => {
           <FormHelperText>{t("setting.languageDes")}</FormHelperText>
         </FormControl>
       </SettingForm>
+      {policyInfo && policyInfo.policies.length > 1 && (
+        <SettingForm title={t("setting.preferredStoragePolicy")} lgWidth={4}>
+          <FormControl fullWidth>
+            <DenseSelect
+              value={setting.preferred_policy ?? ""}
+              onChange={onPreferredPolicyChange}
+              disabled={policyLoading}
+            >
+              <SquareMenuItem value="">
+                {t("setting.storagePolicyGroupDefault", { policy: policyInfo.default?.name ?? "" })}
+              </SquareMenuItem>
+              {policyInfo.policies.map((policy) => (
+                <SquareMenuItem key={policy.id} value={policy.id}>
+                  {policy.name}
+                </SquareMenuItem>
+              ))}
+            </DenseSelect>
+            <FormHelperText>{t("setting.preferredStoragePolicyDes")}</FormHelperText>
+          </FormControl>
+        </SettingForm>
+      )}
       <SettingForm title={t("setting.timeZone")} lgWidth={4}>
         <FormControl fullWidth>
           <DenseSelect value={timeZoneValue} onChange={(e) => selectTimeZone(e.target.value as string)}>

@@ -77,6 +77,7 @@ import {
   UnlockFileService,
   UploadCredential,
   UploadSessionRequest,
+  UserStoragePolicyResponse,
   VersionControlService,
   ViewerGroup,
   ViewerSessionResponse,
@@ -1148,6 +1149,22 @@ export function getUserSettings(): ThunkResponse<UserSettings> {
     return await dispatch(
       send(
         `/user/setting`,
+        {
+          method: "GET",
+        },
+        {
+          ...defaultOpts,
+        },
+      ),
+    );
+  };
+}
+
+export function getUserStoragePolicies(): ThunkResponse<UserStoragePolicyResponse> {
+  return async (dispatch, _getState) => {
+    return await dispatch(
+      send(
+        `/user/setting/storage-policy`,
         {
           method: "GET",
         },
