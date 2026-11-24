@@ -102,6 +102,10 @@ export interface RelocatePlanResponse {
   plan: {
     files: number;
     folders: number;
+    entities: number;
+    versions: number;
+    thumbnails: number;
+    shared: number;
     skipped: number;
     unsupported: number;
     encrypted: number;

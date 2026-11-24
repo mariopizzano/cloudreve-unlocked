@@ -351,9 +351,10 @@ func (f *fileClient) IsStoragePolicyUsedByFolders(ctx context.Context, policyID 
 	return used, nil
 }
 
-// RelocateEntity replaces the primary entity of a file with a new entity on another
-// storage policy. Only entities referenced by a single file are supported, so that
-// shared/deduplicated blobs are never modified in place.
+// RelocateEntity replaces an entity of a file with a copy on another storage
+// policy. When the entity is shared with other files, only this file is
+// detached from the shared entity (the shared blob is left untouched and its
+// reference count is decremented); otherwise the old entity row is deleted.
 func (f *fileClient) RelocateEntity(ctx context.Context, fileID int, oldEntityID int, args RelocateEntityParameters) (*ent.Entity, error) {
 	tx, err := f.client.Tx(ctx)
 	if err != nil {
@@ -371,17 +372,20 @@ func (f *fileClient) RelocateEntity(ctx context.Context, fileID int, oldEntityID
 		return nil, fmt.Errorf("failed to get entity %d: %w", oldEntityID, err)
 	}
 
+	linked, err := tx.Entity.QueryFile(oldEntity).Where(file.IDEQ(fileID)).Count(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check entity link: %w", err)
+	}
+	if linked == 0 {
+		return nil, fmt.Errorf("entity %d is not linked to file %d", oldEntityID, fileID)
+	}
+
 	references, err := tx.Entity.QueryFile(oldEntity).Count(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count entity references: %w", err)
 	}
-	if references != 1 {
-		return nil, fmt.Errorf("entity %d is referenced by %d files, relocation aborted", oldEntityID, references)
-	}
 
-	if fileModel.PrimaryEntity != oldEntityID {
-		return nil, fmt.Errorf("entity %d is not the primary entity of file %d", oldEntityID, fileID)
-	}
+	isPrimary := fileModel.PrimaryEntity == oldEntityID
 
 	stm := tx.Entity.Create().
 		SetType(oldEntity.Type).
@@ -413,19 +417,28 @@ func (f *fileClient) RelocateEntity(ctx context.Context, fileID int, oldEntityID
 		return nil, fmt.Errorf("failed to link relocated entity: %w", err)
 	}
 
-	if _, err := tx.File.UpdateOne(fileModel).
-		SetPrimaryEntity(newEntity.ID).
-		SetStoragePolicyFiles(args.StoragePolicyID).
-		Save(ctx); err != nil {
-		return nil, fmt.Errorf("failed to update file storage policy: %w", err)
+	if isPrimary {
+		if _, err := tx.File.UpdateOne(fileModel).
+			SetPrimaryEntity(newEntity.ID).
+			SetStoragePolicyFiles(args.StoragePolicyID).
+			Save(ctx); err != nil {
+			return nil, fmt.Errorf("failed to update file storage policy: %w", err)
+		}
 	}
 
 	if err := tx.Entity.UpdateOne(oldEntity).RemoveFile(fileModel).Exec(ctx); err != nil {
 		return nil, fmt.Errorf("failed to unlink old entity: %w", err)
 	}
 
-	if err := tx.Entity.DeleteOne(oldEntity).Exec(ctx); err != nil {
-		return nil, fmt.Errorf("failed to delete old entity: %w", err)
+	if references > 1 {
+		// Shared blob: other files still reference the old entity, keep it.
+		if err := tx.Entity.UpdateOne(oldEntity).AddReferenceCount(-1).Exec(ctx); err != nil {
+			return nil, fmt.Errorf("failed to decrement old entity reference count: %w", err)
+		}
+	} else {
+		if err := tx.Entity.DeleteOne(oldEntity).Exec(ctx); err != nil {
+			return nil, fmt.Errorf("failed to delete old entity: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -197,7 +197,7 @@
     "mountPolicy": "Mount storage policy",
     "mountedPolicy": "Mounted policy",
     "relocatePolicy": "Relocate storage policy",
-    "relocateConfirm": "Move {{files}} files ({{size}}) to \"{{policy}}\"? Already on destination: {{skipped}}. Unsupported: {{unsupported}}.",
+    "relocateConfirm": "Move {{files}} files ({{size}}) to \"{{policy}}\"? Entities: {{entities}} ({{versions}} versions, {{thumbnails}} thumbnails). Already on destination: {{skipped}}. Shared entities cloned: {{shared}}.",
     "relocateNoFiles": "No files to move. Already on destination: {{skipped}}. Unsupported: {{unsupported}}.",
     "relocateTaskCreated": "Relocation task created.",
     "currentStoragePolicy": "Current storage policy: {{policy}}",

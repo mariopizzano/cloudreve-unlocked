@@ -41,6 +41,9 @@ type (
 		Failed       int      `json:"failed"`
 		Skipped      int      `json:"skipped"`
 		Unsupported  int      `json:"unsupported"`
+		Versions     int      `json:"versions"`
+		Thumbnails   int      `json:"thumbnails"`
+		Shared       int      `json:"shared"`
 		DeleteSource bool     `json:"delete_source"`
 	}
 
@@ -48,6 +51,10 @@ type (
 	RelocatePlan struct {
 		Files       int   `json:"files"`
 		Folders     int   `json:"folders"`
+		Entities    int   `json:"entities"`
+		Versions    int   `json:"versions"`
+		Thumbnails  int   `json:"thumbnails"`
+		Shared      int   `json:"shared"`
 		Skipped     int   `json:"skipped"`
 		Unsupported int   `json:"unsupported"`
 		Encrypted   int   `json:"encrypted"`
@@ -119,26 +126,40 @@ func PlanRelocate(ctx context.Context, dep dependency.Dep, user *ent.User, src [
 		}
 
 		primary := file.PrimaryEntity()
-		if primary == nil {
-			plan.Unsupported++
-			return nil
+		primaryID := 0
+		if primary != nil {
+			primaryID = primary.ID()
 		}
 
-		if primary.PolicyID() == dstPolicyID {
+		movable := 0
+		for _, entity := range file.Entities() {
+			// Placeholders and already-migrated entities are not relocated.
+			if entity.Size() == 0 || entity.PolicyID() == dstPolicyID {
+				continue
+			}
+
+			movable++
+			plan.Entities++
+			plan.Size += entity.Size()
+			if entity.Encrypted() {
+				plan.Encrypted++
+			}
+			if entity.ReferenceCount() > 1 {
+				plan.Shared++
+			}
+			if entity.Type() == types.EntityTypeThumbnail {
+				plan.Thumbnails++
+			} else if entity.ID() != primaryID {
+				plan.Versions++
+			}
+		}
+
+		if movable > 0 {
+			plan.Files++
+		} else {
 			plan.Skipped++
-			return nil
 		}
 
-		if primary.ReferenceCount() != 1 {
-			plan.Unsupported++
-			return nil
-		}
-
-		plan.Files++
-		plan.Size += primary.Size()
-		if primary.Encrypted() {
-			plan.Encrypted++
-		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -233,18 +254,22 @@ func (m *RelocateTask) index(ctx context.Context, dep dependency.Dep, user *ent.
 		return task.StatusError, fmt.Errorf("failed to build relocation plan: %w", err)
 	}
 
-	m.state.Total = plan.Files
+	m.state.Total = plan.Entities
 	m.state.Skipped = plan.Skipped
 	m.state.Unsupported = plan.Unsupported
+	m.state.Versions = plan.Versions
+	m.state.Thumbnails = plan.Thumbnails
+	m.state.Shared = plan.Shared
 	m.state.Phase = RelocatePhaseTransfer
 	m.state.Done = 0
 	m.state.Failed = 0
 
 	m.Lock()
-	m.progress[ProgressTypeRelocateTransferCount].Total = int64(plan.Files)
+	m.progress[ProgressTypeRelocateTransferCount].Total = int64(plan.Entities)
 	m.Unlock()
 
-	m.l.Info("Relocation plan: %d files, %d bytes, %d skipped, %d unsupported", plan.Files, plan.Size, plan.Skipped, plan.Unsupported)
+	m.l.Info("Relocation plan: %d files, %d entities (%d versions, %d thumbnails, %d shared), %d bytes, %d skipped, %d unsupported",
+		plan.Files, plan.Entities, plan.Versions, plan.Thumbnails, plan.Shared, plan.Size, plan.Skipped, plan.Unsupported)
 	m.ResumeAfter(0)
 	return task.StatusSuspending, nil
 }
@@ -263,19 +288,22 @@ func (m *RelocateTask) transfer(ctx context.Context, dep dependency.Dep) (task.S
 			return nil
 		}
 
-		primary := file.PrimaryEntity()
-		if primary == nil || primary.PolicyID() == dstPolicy.ID || primary.ReferenceCount() != 1 {
-			return nil
+		primaryID := file.PrimaryEntityID()
+		for _, entity := range file.Entities() {
+			if entity.Size() == 0 || entity.PolicyID() == dstPolicy.ID {
+				continue
+			}
+
+			if err := m.relocateEntity(ctx, dep, user, file, entity, dstPolicy, entity.ID() == primaryID); err != nil {
+				failed++
+				m.l.Warning("Failed to relocate entity %d of file %d (%s): %s", entity.ID(), file.ID(), file.Name(), err)
+				continue
+			}
+
+			done++
+			atomic.AddInt64(&m.progress[ProgressTypeRelocateTransferCount].Current, 1)
 		}
 
-		if err := m.relocateOne(ctx, dep, user, file, primary, dstPolicy); err != nil {
-			failed++
-			m.l.Warning("Failed to relocate file %d (%s): %s", file.ID(), file.Name(), err)
-			return nil
-		}
-
-		done++
-		atomic.AddInt64(&m.progress[ProgressTypeRelocateTransferCount].Current, 1)
 		return nil
 	})
 
@@ -287,13 +315,13 @@ func (m *RelocateTask) transfer(ctx context.Context, dep dependency.Dep) (task.S
 		return task.StatusError, fmt.Errorf("failed to walk relocation sources: %w", walkErr)
 	}
 
-	m.l.Info("Relocation finished: %d files moved, %d failed, %d skipped, %d unsupported",
+	m.l.Info("Relocation finished: %d entities moved, %d failed, %d skipped files, %d unsupported",
 		done, failed, m.state.Skipped, m.state.Unsupported)
 	return task.StatusCompleted, nil
 }
 
-func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user *ent.User, file fs.File, primary fs.Entity, dstPolicy *ent.StoragePolicy) error {
-	source, err := m.fm.GetEntitySource(ctx, primary.ID())
+func (m *RelocateTask) relocateEntity(ctx context.Context, dep dependency.Dep, user *ent.User, file fs.File, entity fs.Entity, dstPolicy *ent.StoragePolicy, isPrimary bool) error {
+	source, err := m.fm.GetEntitySource(ctx, entity.ID())
 	if err != nil {
 		return fmt.Errorf("failed to open source entity: %w", err)
 	}
@@ -322,7 +350,7 @@ func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user
 			return fmt.Errorf("failed to load encryption metadata: %w", err)
 		}
 
-		if err := cryptor.SetSource(source, source, primary.Size(), 0); err != nil {
+		if err := cryptor.SetSource(source, source, entity.Size(), 0); err != nil {
 			_ = source.Close()
 			return fmt.Errorf("failed to initialize encryptor source: %w", err)
 		}
@@ -336,13 +364,18 @@ func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user
 		}
 	}
 
+	mimeType := dep.MimeDetector(ctx).TypeByName(file.Name())
+	if entity.Type() == types.EntityTypeThumbnail {
+		mimeType = "image/jpeg"
+	}
+
 	savePath := dbfs.GenerateSavePathForPolicy(dstPolicy, file.Uri(false), user)
 	req := &fs.UploadRequest{
 		Props: &fs.UploadProps{
 			Uri:      file.Uri(false),
-			Size:     primary.Size(),
+			Size:     entity.Size(),
 			SavePath: savePath,
-			MimeType: dep.MimeDetector(ctx).TypeByName(file.Name()),
+			MimeType: mimeType,
 		},
 		Mode:   fs.ModeNone,
 		File:   reader,
@@ -359,7 +392,7 @@ func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user
 		return fmt.Errorf("failed to write destination object: %w", err)
 	}
 
-	if _, err := dep.FileClient().RelocateEntity(ctx, file.ID(), primary.ID(), inventory.RelocateEntityParameters{
+	if _, err := dep.FileClient().RelocateEntity(ctx, file.ID(), entity.ID(), inventory.RelocateEntityParameters{
 		NewSource:       savePath,
 		StoragePolicyID: dstPolicy.ID,
 		EncryptMetadata: storedMeta,
@@ -371,14 +404,24 @@ func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user
 		return fmt.Errorf("failed to commit relocated entity: %w", err)
 	}
 
-	oldPolicy, err := dep.StoragePolicyClient().GetPolicyByID(ctx, primary.PolicyID())
+	if !isPrimary {
+		m.l.Info("Relocated %s entity %d of file %d to policy %d", entity.Type(), entity.ID(), file.ID(), dstPolicy.ID)
+	}
+
+	oldPolicy, err := dep.StoragePolicyClient().GetPolicyByID(ctx, entity.PolicyID())
 	if err != nil {
-		m.l.Warning("Failed to load old policy %d for cleanup: %s", primary.PolicyID(), err)
+		m.l.Warning("Failed to load old policy %d for cleanup: %s", entity.PolicyID(), err)
 		return nil
 	}
 
 	if !m.state.DeleteSource {
-		m.l.Info("Relocation kept source object %q on policy %d (delete_source=false)", primary.Source(), primary.PolicyID())
+		m.l.Info("Relocation kept source object %q on policy %d (delete_source=false)", entity.Source(), entity.PolicyID())
+		return nil
+	}
+
+	if entity.ReferenceCount() > 1 {
+		// Shared blob: other files still use it, never delete the source.
+		m.l.Info("Relocation kept shared source object %q (reference count %d)", entity.Source(), entity.ReferenceCount())
 		return nil
 	}
 
@@ -388,8 +431,8 @@ func (m *RelocateTask) relocateOne(ctx context.Context, dep dependency.Dep, user
 		return nil
 	}
 
-	if _, err := oldDriver.Delete(ctx, primary.Source()); err != nil {
-		m.l.Warning("Failed to delete old object %q: %s", primary.Source(), err)
+	if _, err := oldDriver.Delete(ctx, entity.Source()); err != nil {
+		m.l.Warning("Failed to delete old object %q: %s", entity.Source(), err)
 	}
 
 	return nil
