@@ -15,6 +15,9 @@ const requiredKeys = [
   "fileManager.relocateKeepSourceDes",
   "fileManager.relocateDeleteSource",
   "fileManager.relocateDeleteSourceDes",
+  "setting.relocateEntities",
+  "setting.relocateFailed",
+  "setting.relocateFailures",
 ];
 
 const locales = ["en-US", "it-IT"];

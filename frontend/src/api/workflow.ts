@@ -38,6 +38,13 @@ export interface TaskSummary {
     dst_policy_id?: string;
     failed?: number;
     total?: number;
+    entities?: number;
+    done?: number;
+    versions?: number;
+    thumbnails?: number;
+    shared?: number;
+    skipped?: number;
+    failures?: Array<{ file: number; entity: number; name: string; error: string }>;
     download?: DownloadTaskStatus;
   };
 }

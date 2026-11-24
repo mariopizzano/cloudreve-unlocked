@@ -45,6 +45,15 @@ type (
 		Thumbnails   int      `json:"thumbnails"`
 		Shared       int      `json:"shared"`
 		DeleteSource bool     `json:"delete_source"`
+		Failures     []RelocateFailure `json:"failures,omitempty"`
+	}
+
+	// RelocateFailure is a single entity-level failure kept for the task audit.
+	RelocateFailure struct {
+		File   int    `json:"file"`
+		Entity int    `json:"entity"`
+		Name   string `json:"name"`
+		Error  string `json:"error"`
 	}
 
 	// RelocatePlan is a read-only preview of a relocation operation.
@@ -66,6 +75,14 @@ const (
 	RelocatePhaseIndex    = "index"
 	RelocatePhaseTransfer = "transfer"
 	RelocatePhaseFinish   = "finish"
+
+	SummaryKeyRelocateEntities   = "entities"
+	SummaryKeyRelocateDone       = "done"
+	SummaryKeyRelocateVersions   = "versions"
+	SummaryKeyRelocateThumbnails = "thumbnails"
+	SummaryKeyRelocateShared     = "shared"
+	SummaryKeyRelocateSkipped    = "skipped"
+	SummaryKeyRelocateFailures   = "failures"
 )
 
 func init() {
@@ -297,6 +314,14 @@ func (m *RelocateTask) transfer(ctx context.Context, dep dependency.Dep) (task.S
 			if err := m.relocateEntity(ctx, dep, user, file, entity, dstPolicy, entity.ID() == primaryID); err != nil {
 				failed++
 				m.l.Warning("Failed to relocate entity %d of file %d (%s): %s", entity.ID(), file.ID(), file.Name(), err)
+				if len(m.state.Failures) < 20 {
+					m.state.Failures = append(m.state.Failures, RelocateFailure{
+						File:   file.ID(),
+						Entity: entity.ID(),
+						Name:   file.Name(),
+						Error:  err.Error(),
+					})
+				}
 				continue
 			}
 
@@ -454,10 +479,17 @@ func (m *RelocateTask) Summarize(hasher hashid.Encoder) *queue.Summary {
 	return &queue.Summary{
 		Phase: m.state.Phase,
 		Props: map[string]any{
-			SummaryKeySrcMultiple:    lo.Ternary(len(m.state.Src) > 0, m.state.Src, nil),
-			SummaryKeySrcDstPolicyID: hashid.EncodePolicyID(hasher, m.state.DstPolicyID),
-			SummaryKeyFailed:         m.state.Failed,
-			SummaryKeyTotal:          m.state.Total,
+			SummaryKeySrcMultiple:        lo.Ternary(len(m.state.Src) > 0, m.state.Src, nil),
+			SummaryKeySrcDstPolicyID:     hashid.EncodePolicyID(hasher, m.state.DstPolicyID),
+			SummaryKeyFailed:             m.state.Failed,
+			SummaryKeyTotal:              m.state.Total,
+			SummaryKeyRelocateEntities:   m.state.Total,
+			SummaryKeyRelocateDone:       m.state.Done,
+			SummaryKeyRelocateVersions:   m.state.Versions,
+			SummaryKeyRelocateThumbnails: m.state.Thumbnails,
+			SummaryKeyRelocateShared:     m.state.Shared,
+			SummaryKeyRelocateSkipped:    m.state.Skipped,
+			SummaryKeyRelocateFailures:   lo.Ternary(len(m.state.Failures) > 0, m.state.Failures, nil),
 		},
 	}
 }

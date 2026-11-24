@@ -155,8 +155,32 @@ const TaskProps = ({ task }: TaskPropsProps) => {
           }
         />
       )}
-      <TaskPropsBlock label={t("setting.executeDuration")} value={formatDuration(dayjs.duration(task.duration ?? 0))} />
-      {task.resume_time && (task.status == TaskStatus.suspending || task.status == TaskStatus.processing) && (
+      {task.type == TaskType.relocate && (
+        <>
+          <TaskPropsBlock label={t("setting.relocateEntities")} value={task.summary?.props.entities ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateDone")} value={task.summary?.props.done ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateVersions")} value={task.summary?.props.versions ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateThumbnails")} value={task.summary?.props.thumbnails ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateShared")} value={task.summary?.props.shared ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateSkipped")} value={task.summary?.props.skipped ?? 0} />
+          <TaskPropsBlock label={t("setting.relocateFailed")} value={task.summary?.props.failed ?? 0} />
+        </>
+      )}
+      {task.type == TaskType.relocate && !!task.summary?.props.failures?.length && (
+        <TaskPropsBlock
+          label={t("setting.relocateFailures")}
+          value={
+            <Stack sx={{ maxHeight: 140, overflowY: "auto" }}>
+              {(task.summary?.props.failures ?? []).map((failure, index) => (
+                <Typography key={index} variant="inherit">
+                  {failure.name} (entity {failure.entity}, file {failure.file}): {failure.error}
+                </Typography>
+              ))}
+            </Stack>
+          }
+        />
+      )}
+      <TaskPropsBlock label={t("setting.executeDuration")} value={formatDuration(dayjs.duration(task.duration ?? 0))} />      {task.resume_time && (task.status == TaskStatus.suspending || task.status == TaskStatus.processing) && (
         <TaskPropsBlock
           label={t("setting.resumeAt")}
           value={<TimeBadge variant={"inherit"} datetime={dayjs.unix(task.resume_time)} />}
