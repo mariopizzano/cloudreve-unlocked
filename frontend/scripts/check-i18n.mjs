@@ -1,24 +1,58 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const requiredKeys = [
-  "fileManager.mountedPolicy",
-  "fileManager.mountPolicy",
-  "fileManager.currentStoragePolicy",
-  "fileManager.inheritedFromParent",
-  "fileManager.relocatePolicy",
-  "fileManager.relocateConfirm",
-  "fileManager.relocateNoFiles",
-  "fileManager.relocateTaskCreated",
-  "fileManager.relocateSourceTitle",
-  "fileManager.relocateKeepSource",
-  "fileManager.relocateKeepSourceDes",
-  "fileManager.relocateDeleteSource",
-  "fileManager.relocateDeleteSourceDes",
-  "setting.relocateEntities",
-  "setting.relocateFailed",
-  "setting.relocateFailures",
-];
+const requiredKeys = {
+  application: [
+    "fileManager.mountedPolicy",
+    "fileManager.mountPolicy",
+    "fileManager.currentStoragePolicy",
+    "fileManager.inheritedFromParent",
+    "fileManager.relocatePolicy",
+    "fileManager.relocateConfirm",
+    "fileManager.relocateNoFiles",
+    "fileManager.relocateTaskCreated",
+    "fileManager.relocateSourceTitle",
+    "fileManager.relocateKeepSource",
+    "fileManager.relocateKeepSourceDes",
+    "fileManager.relocateDeleteSource",
+    "fileManager.relocateDeleteSourceDes",
+    "setting.relocateEntities",
+    "setting.relocateFailed",
+    "setting.relocateFailures",
+    "activity.title",
+  ],
+  common: [
+    "activity.fileHistory",
+    "activity.recentLogins",
+    "activity.noActivity",
+    "activity.time",
+    "activity.actionLabel",
+    "activity.target",
+    "activity.action.login_success",
+    "activity.action.login_failed",
+    "activity.action.file_create",
+    "activity.action.file_upload",
+    "activity.action.file_update",
+    "activity.action.file_rename",
+    "activity.action.file_move",
+    "activity.action.file_copy",
+    "activity.action.file_delete",
+    "activity.action.file_restore",
+    "activity.action.file_download",
+    "activity.action.share_create",
+    "activity.action.share_delete",
+  ],
+  dashboard: [
+    "activity.dialogTitle",
+    "activity.action",
+    "activity.from",
+    "activity.to",
+    "settings.activityLogEnabled",
+    "settings.activityLogEnabledDes",
+    "settings.activityLogCaptured",
+    "settings.activityLogCapturedDes",
+  ],
+};
 
 const requiredDashboardKeys = [
   "policy.load_balance",
@@ -38,8 +72,9 @@ const requiredDashboardKeys = [
 const locales = ["en-US", "it-IT"];
 
 const checks = [
-  { file: "application.json", keys: requiredKeys },
-  { file: "dashboard.json", keys: requiredDashboardKeys },
+  { file: "application.json", keys: requiredKeys.application },
+  { file: "common.json", keys: requiredKeys.common },
+  { file: "dashboard.json", keys: [...requiredKeys.dashboard, ...requiredDashboardKeys] },
 ];
 
 const get = (obj, path) => path.split(".").reduce((acc, part) => (acc == null ? undefined : acc[part]), obj);

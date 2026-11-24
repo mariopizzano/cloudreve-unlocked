@@ -13,6 +13,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
 	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
 	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
 	"github.com/cloudreve/Cloudreve/v4/service/explorer"
 	"github.com/gin-gonic/gin"
 )
@@ -96,7 +97,20 @@ func (service *ShareCreateService) Upsert(c *gin.Context, existed int) (string, 
 	}
 
 	base := dep.SettingProvider().SiteURL(c)
-	return explorer.BuildShareLink(share, dep.HashIDEncoder(), base, true), nil
+	link := explorer.BuildShareLink(share, dep.HashIDEncoder(), base, true)
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionShareCreate,
+		TargetType: activitysvc.TargetTypeShare,
+		Target:     service.Uri,
+		Metadata: map[string]any{
+			"share_id": share.ID,
+			"private":  service.IsPrivate,
+			"expire":   service.Expire,
+		},
+	})
+
+	return link, nil
 }
 
 func DeleteShare(c *gin.Context, shareId int) error {
@@ -121,6 +135,14 @@ func DeleteShare(c *gin.Context, shareId int) error {
 	if err := shareClient.Delete(c, share.ID); err != nil {
 		return serializer.NewError(serializer.CodeDBError, "Failed to delete share", err)
 	}
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionShareDelete,
+		TargetType: activitysvc.TargetTypeShare,
+		Metadata: map[string]any{
+			"share_id": share.ID,
+		},
+	})
 
 	return nil
 }

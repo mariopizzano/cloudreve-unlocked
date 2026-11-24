@@ -795,6 +795,9 @@
     "createdAt": "Created at: ",
     "unknownSize": "Unknown file size"
   },
+  "activity": {
+    "title": "Activity"
+  },
   "setting": {
     "treeView": "Tree view",
     "autoExpandTreeView": "Auto expand tree view",

@@ -46,6 +46,12 @@ func InitializeDBClient(l logging.Logger,
 		if err := migrateRetainedObjectSettings(client, ctx); err != nil {
 			return nil, fmt.Errorf("failed to migrate additive settings: %w", err)
 		}
+		if err := migrateActivities(client, ctx); err != nil {
+			return nil, fmt.Errorf("failed to migrate activities schema: %w", err)
+		}
+		if err := migrateActivitySettings(client, ctx); err != nil {
+			return nil, fmt.Errorf("failed to migrate activity settings: %w", err)
+		}
 	}
 
 	//createMockData(client, ctx)

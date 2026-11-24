@@ -676,6 +676,7 @@ var DefaultSettings = map[string]string{
 	"fs_event_push_enabled":                      "1",
 	"fs_event_push_max_age":                      "1209600",
 	"fs_event_push_debounce":                     "5",
+	"activity_log_enabled":                       "1",
 	"fts_enabled":                                "0",
 	"fts_index_type":                             "meilisearch",
 	"fts_extractor_type":                         "tika",

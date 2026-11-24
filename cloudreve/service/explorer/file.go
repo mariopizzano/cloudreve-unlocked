@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cloudreve/Cloudreve/v4/application/dependency"
@@ -21,6 +22,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
 	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
 	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
@@ -238,6 +240,14 @@ func (service *CreateFileService) Create(c *gin.Context) (*FileResponse, error) 
 		return nil, err
 	}
 
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileCreate,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     file.Uri(false).String(),
+		FileID:     file.ID(),
+		Metadata:   map[string]any{"type": service.Type},
+	})
+
 	return BuildFileResponse(c, user, file, dep.HashIDEncoder(), nil), nil
 }
 
@@ -264,6 +274,16 @@ func (service *RenameFileService) Rename(c *gin.Context) (*FileResponse, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileRename,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     service.Uri,
+		FileID:     file.ID(),
+		Metadata: map[string]any{
+			"new_name": service.NewName,
+		},
+	})
 
 	return BuildFileResponse(c, user, file, dep.HashIDEncoder(), nil), nil
 }
@@ -297,7 +317,27 @@ func (s *MoveFileService) Move(c *gin.Context) error {
 		return serializer.NewError(serializer.CodeParamErr, "unknown destination uri", err)
 	}
 
-	return m.MoveOrCopy(c, uris, dst, s.Copy)
+	if err := m.MoveOrCopy(c, uris, dst, s.Copy); err != nil {
+		return err
+	}
+
+	action := activitysvc.ActionFileMove
+	if s.Copy {
+		action = activitysvc.ActionFileCopy
+	}
+	metadata := map[string]any{
+		"destination": s.Dst,
+		"count":       len(s.Uris),
+		"uris":        s.Uris,
+	}
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     action,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     strings.Join(s.Uris, ","),
+		Metadata:   metadata,
+	})
+
+	return nil
 }
 
 type (
@@ -349,6 +389,16 @@ func (service *FileUpdateService) PutContent(c *gin.Context, ls fs.LockSession) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to update file: %w", err)
 	}
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileUpdate,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     service.Uri,
+		FileID:     res.ID(),
+		Metadata: map[string]any{
+			"size": fileSize,
+		},
+	})
 
 	return BuildFileResponse(c, user, res, dep.HashIDEncoder(), nil), nil
 }
@@ -409,6 +459,17 @@ func (s *FileURLService) GetArchiveDownloadSession(c *gin.Context) (*FileURLResp
 	if err := dep.KV().Set(ArchiveDownloadSessionPrefix+sessionId, *archiveSession, ttl); err != nil {
 		return nil, serializer.NewError(serializer.CodeInternalSetting, "failed to create archive download session", err)
 	}
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileDownload,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     strings.Join(s.Uris, ","),
+		Metadata: map[string]any{
+			"count":   len(s.Uris),
+			"uris":    s.Uris,
+			"archive": true,
+		},
+	})
 
 	base := settings.SiteURL(c)
 	downloadUrl := routes.MasterArchiveDownloadUrl(base, sessionId)
@@ -474,6 +535,18 @@ func (s *FileURLService) Get(c *gin.Context) (*FileURLResponse, error) {
 	if s.Redirect && len(uris) == 1 {
 		c.Redirect(http.StatusFound, res[0].Url)
 		return nil, nil
+	}
+
+	if s.Download {
+		activitysvc.Record(c, activitysvc.Entry{
+			Action:     activitysvc.ActionFileDownload,
+			TargetType: activitysvc.TargetTypeFile,
+			Target:     strings.Join(s.Uris, ","),
+			Metadata: map[string]any{
+				"count": len(s.Uris),
+				"uris":  s.Uris,
+			},
+		})
 	}
 
 	return &FileURLResponse{
@@ -556,6 +629,18 @@ func (s *DeleteFileService) Delete(c *gin.Context) error {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileDelete,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     strings.Join(s.Uris, ","),
+		Metadata: map[string]any{
+			"count":            len(s.Uris),
+			"uris":             s.Uris,
+			"unlink_only":      s.UnlinkOnly,
+			"skip_soft_delete": s.SkipSoftDelete,
+		},
+	})
+
 	return nil
 }
 
@@ -575,6 +660,16 @@ func (s *DeleteFileService) Restore(c *gin.Context) error {
 		return fmt.Errorf("failed to restore file: %w", err)
 
 	}
+
+	activitysvc.Record(c, activitysvc.Entry{
+		Action:     activitysvc.ActionFileRestore,
+		TargetType: activitysvc.TargetTypeFile,
+		Target:     strings.Join(s.Uris, ","),
+		Metadata: map[string]any{
+			"count": len(s.Uris),
+			"uris":  s.Uris,
+		},
+	})
 
 	return nil
 }

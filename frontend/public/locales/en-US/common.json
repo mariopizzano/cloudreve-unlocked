@@ -36,6 +36,30 @@
       "verified": "You're a human"
     }
   },
+  "activity": {
+    "title": "Activity",
+    "fileHistory": "File activity",
+    "recentLogins": "Recent sign-ins",
+    "noActivity": "No activity recorded yet.",
+    "time": "Time",
+    "actionLabel": "Action",
+    "target": "Target",
+    "action": {
+      "login_success": "Sign in",
+      "login_failed": "Failed sign in",
+      "file_create": "Create file or folder",
+      "file_upload": "Upload file",
+      "file_update": "Update file content",
+      "file_rename": "Rename",
+      "file_move": "Move",
+      "file_copy": "Copy",
+      "file_delete": "Delete",
+      "file_restore": "Restore",
+      "file_download": "Download",
+      "share_create": "Create share",
+      "share_delete": "Delete share"
+    }
+  },
   "errors": {
     "401": "Please login.",
     "403": "You are not allowed to perform this action.",

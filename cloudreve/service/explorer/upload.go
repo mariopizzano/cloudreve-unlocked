@@ -15,6 +15,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
 	"github.com/cloudreve/Cloudreve/v4/pkg/request"
 	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
 	"github.com/gin-gonic/gin"
 )
 
@@ -88,6 +89,19 @@ func (service *CreateUploadSessionService) Create(c context.Context) (*UploadSes
 	credential, err := m.CreateUploadSession(c, uploadRequest)
 	if err != nil {
 		return nil, err
+	}
+
+	if ginCtx, ok := c.(*gin.Context); ok {
+		activitysvc.Record(ginCtx, activitysvc.Entry{
+			Action:     activitysvc.ActionFileUpload,
+			TargetType: activitysvc.TargetTypeFile,
+			Target:     service.Uri,
+			Metadata: map[string]any{
+				"size":        service.Size,
+				"entity_type": service.EntityType,
+				"mime_type":   service.MimeType,
+			},
+		})
 	}
 
 	return BuildUploadSessionResponse(credential, hasher), nil

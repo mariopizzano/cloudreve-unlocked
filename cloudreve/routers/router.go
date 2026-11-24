@@ -16,6 +16,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/webdav"
 	"github.com/cloudreve/Cloudreve/v4/routers/controllers"
 	adminsvc "github.com/cloudreve/Cloudreve/v4/service/admin"
+	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
 	"github.com/cloudreve/Cloudreve/v4/service/basic"
 	"github.com/cloudreve/Cloudreve/v4/service/explorer"
 	"github.com/cloudreve/Cloudreve/v4/service/node"
@@ -935,6 +936,20 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 					)
 				}
 
+				activityLog := admin.Group("activity")
+				{
+					// List activity entries with filters.
+					activityLog.GET("",
+						controllers.FromQuery[activitysvc.AdminListActivitiesService](activitysvc.AdminListActivitiesParamCtx{}),
+						controllers.AdminListActivities,
+					)
+					// Get a single activity entry.
+					activityLog.GET(":id",
+						controllers.FromUri[activitysvc.AdminActivityDetailService](activitysvc.AdminActivityDetailParamCtx{}),
+						controllers.AdminGetActivity,
+					)
+				}
+
 				// 用户组管理
 				group := admin.Group("group")
 				{
@@ -1292,6 +1307,13 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 					middleware.RequiredScopes(types.ScopeUserInfoRead),
 					controllers.FromQuery[usersvc.SearchUserService](usersvc.SearchUserParamCtx{}),
 					controllers.UserSearch,
+				)
+
+				// User activity history (file operations and recent sign-ins)
+				user.GET("activity",
+					middleware.RequiredScopes(types.ScopeUserInfoRead),
+					controllers.FromQuery[activitysvc.UserActivityListService](activitysvc.UserActivityListParamCtx{}),
+					controllers.UserListActivities,
 				)
 
 				// WebAuthn 注册相关

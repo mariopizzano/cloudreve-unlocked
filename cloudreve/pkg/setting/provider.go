@@ -224,6 +224,8 @@ type (
 		EventHubEnabled(ctx context.Context) bool
 		// EventHubDebounceDelay returns the debounce delay of event hub.
 		EventHubDebounceDelay(ctx context.Context) time.Duration
+		// ActivityLogEnabled returns true if activity logging is enabled.
+		ActivityLogEnabled(ctx context.Context) bool
 		// FTSEnabled returns true if full-text search is enabled.
 		FTSEnabled(ctx context.Context) bool
 		// FTSIndexType returns the full-text search index type.
@@ -626,6 +628,10 @@ func (s *settingProvider) EventHubDebounceDelay(ctx context.Context) time.Durati
 
 func (s *settingProvider) EventHubEnabled(ctx context.Context) bool {
 	return s.getBoolean(ctx, "fs_event_push_enabled", true)
+}
+
+func (s *settingProvider) ActivityLogEnabled(ctx context.Context) bool {
+	return s.getBoolean(ctx, "activity_log_enabled", true)
 }
 
 func (s *settingProvider) FTSEnabled(ctx context.Context) bool {

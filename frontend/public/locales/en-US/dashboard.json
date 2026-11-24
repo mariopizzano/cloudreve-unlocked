@@ -39,7 +39,7 @@
     "fileSystem": "Filesystem",
     "mediaProcessing": "Media processing",
     "queue": "Queue",
-    "events": "Events",
+    "events": "Activity logs",
     "server": "Server",
     "customProps": "Custom properties",
     "fullTextSearch": "Full-text search",
@@ -668,6 +668,10 @@
     "defaultTheme": "Default",
     "auditLog": "Events",
     "auditLogDes": "Configure which events should be recorded. Some events might be used by the system to provide additional features, e.g. file activity and sign in activity.",
+    "activityLogEnabled": "Enable activity logging",
+    "activityLogEnabledDes": "Record file operations and sign-in attempts. Entries include the client IP address and user agent and are visible to administrators and to the user they belong to.",
+    "activityLogCaptured": "Captured activities",
+    "activityLogCapturedDes": "When activity logging is enabled the following categories are recorded:",
     "systemEvents": "System events",
     "systemEventsDes": "Events related to system operations and status.",
     "userEvents": "User events",
@@ -1442,6 +1446,12 @@
     "deleteXEntities": "Delete {{num}} Blobs",
     "forceDelete": "Force delete",
     "forceDeleteDes": "Whether to delete the Blob record regardless of whether the physical file is deleted."
+  },
+  "activity": {
+    "dialogTitle": "Activity details",
+    "action": "Action",
+    "from": "From",
+    "to": "To"
   },
   "event": {
     "cleanup": "Cleanup",

@@ -198,6 +198,13 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: "event",
+                async lazy() {
+                  let { ActivityList } = await import("../component/Admin/AdminBundle.tsx");
+                  return { Component: ActivityList };
+                },
+              },
+              {
                 path: "share",
                 async lazy() {
                   let { ShareList } = await import("../component/Admin/AdminBundle.tsx");

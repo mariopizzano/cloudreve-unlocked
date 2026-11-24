@@ -845,6 +845,9 @@
     "createdAt": "Creato il: ",
     "unknownSize": "Dimensione file sconosciuta"
   },
+  "activity": {
+    "title": "Attività"
+  },
   "setting": {
     "notifyStoragePolicyChange": "Notificami per il cambio di policy di archiviazione",
     "notifyStoragePolicyChangeDes": "Quando abilitato, verrà mostrata una notifica quando si entra in una directory associata a una policy di archiviazione diversa.",

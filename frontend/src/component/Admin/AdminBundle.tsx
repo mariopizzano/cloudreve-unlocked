@@ -1,4 +1,5 @@
 import EntitySetting from "./Entity/EntitySetting";
+import ActivityList from "./Event/ActivityList";
 import FileSetting from "./File/FileSetting";
 import FileSystem from "./FileSystem/Filesystem";
 import EditGroup from "./Group/EditGroup/EditGroup";
@@ -22,6 +23,7 @@ export {
   EditOAuthClient,
   EditStoragePolicy,
   EntitySetting,
+  ActivityList,
   FileSetting,
   FileSystem,
   GroupSetting,

@@ -319,7 +319,7 @@ const Settings = () => {
                 </SettingsWrapper>
               )}
               {tab === SettingsPageTab.Events && (
-                <SettingsWrapper settings={[]}>
+                <SettingsWrapper settings={["activity_log_enabled"]}>
                   <Events />
                 </SettingsWrapper>
               )}

@@ -7,6 +7,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
 	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
 	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	activitysvc "github.com/cloudreve/Cloudreve/v4/service/activity"
 	"github.com/cloudreve/Cloudreve/v4/service/share"
 	"github.com/cloudreve/Cloudreve/v4/service/user"
 	"github.com/gin-gonic/gin"
@@ -77,6 +78,15 @@ func UserLoginValidation(c *gin.Context) {
 	service := ParametersFromContext[*user.UserLoginService](c, user.LoginParameterCtx{})
 	expectedUser, twoFaSession, err := service.Login(c)
 	if err != nil {
+		activitysvc.Record(c, activitysvc.Entry{
+			Action:     activitysvc.ActionLoginFailed,
+			TargetType: activitysvc.TargetTypeUser,
+			Target:     service.UserName,
+			Metadata: map[string]any{
+				"reason": err.Error(),
+				"stage":  "password",
+			},
+		})
 		c.JSON(200, serializer.Err(c, err))
 		c.Abort()
 		return
@@ -98,6 +108,14 @@ func UserLogin2FAValidation(c *gin.Context) {
 	service := ParametersFromContext[*user.OtpValidationService](c, user.OtpValidationParameterCtx{})
 	expectedUser, err := service.Verify2FA(c)
 	if err != nil {
+		activitysvc.Record(c, activitysvc.Entry{
+			Action:     activitysvc.ActionLoginFailed,
+			TargetType: activitysvc.TargetTypeUser,
+			Metadata: map[string]any{
+				"reason": err.Error(),
+				"stage":  "2fa",
+			},
+		})
 		c.JSON(200, serializer.Err(c, err))
 		c.Abort()
 		return
@@ -114,6 +132,15 @@ func UserIssueToken(c *gin.Context) {
 		c.JSON(200, serializer.Err(c, err))
 		c.Abort()
 		return
+	}
+
+	if u := inventory.UserFromContext(c); u != nil {
+		activitysvc.Record(c, activitysvc.Entry{
+			Action:     activitysvc.ActionLoginSuccess,
+			TargetType: activitysvc.TargetTypeUser,
+			Target:     u.Email,
+			UserID:     u.ID,
+		})
 	}
 
 	c.JSON(200, serializer.Response{

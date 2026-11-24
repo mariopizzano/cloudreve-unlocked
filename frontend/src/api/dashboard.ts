@@ -329,6 +329,41 @@ export interface AdminListService {
   searches?: Record<string, string>;
 }
 
+export interface ActivityEntry {
+  id: number;
+  user_id?: number;
+  action: string;
+  target_type: string;
+  target?: string;
+  file_id?: number;
+  ip?: string;
+  user_agent?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ListActivityResponse {
+  pagination: PaginationResults;
+  activities: ActivityEntry[];
+}
+
+export interface ActivityListQuery {
+  page: number;
+  page_size: number;
+  action?: string;
+  user_id?: number;
+  ip?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface UserActivityListQuery {
+  page: number;
+  page_size: number;
+  scope?: string;
+  action?: string;
+}
+
 export interface UpsertStoragePolicyService {
   policy: StoragePolicy;
 }

@@ -36,6 +36,30 @@
       "verified": "Verifica completata"
     }
   },
+  "activity": {
+    "title": "Attività",
+    "fileHistory": "Attività sui file",
+    "recentLogins": "Accessi recenti",
+    "noActivity": "Nessuna attività registrata.",
+    "time": "Ora",
+    "actionLabel": "Azione",
+    "target": "Destinazione",
+    "action": {
+      "login_success": "Accesso",
+      "login_failed": "Accesso non riuscito",
+      "file_create": "Creazione file o cartella",
+      "file_upload": "Caricamento file",
+      "file_update": "Modifica contenuto file",
+      "file_rename": "Rinomina",
+      "file_move": "Spostamento",
+      "file_copy": "Copia",
+      "file_delete": "Eliminazione",
+      "file_restore": "Ripristino",
+      "file_download": "Download",
+      "share_create": "Creazione condivisione",
+      "share_delete": "Eliminazione condivisione"
+    }
+  },
   "errors": {
     "401": "Effettua prima il login.",
     "403": "Non hai i permessi per eseguire questa azione.",

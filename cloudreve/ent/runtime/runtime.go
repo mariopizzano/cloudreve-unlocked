@@ -5,6 +5,7 @@ package runtime
 import (
 	"time"
 
+	"github.com/cloudreve/Cloudreve/v4/ent/activity"
 	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
 	"github.com/cloudreve/Cloudreve/v4/ent/directlink"
 	"github.com/cloudreve/Cloudreve/v4/ent/entity"
@@ -30,6 +31,39 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	activityMixin := schema.Activity{}.Mixin()
+	activityMixinHooks0 := activityMixin[0].Hooks()
+	activity.Hooks[0] = activityMixinHooks0[0]
+	activityMixinInters0 := activityMixin[0].Interceptors()
+	activity.Interceptors[0] = activityMixinInters0[0]
+	activityMixinFields0 := activityMixin[0].Fields()
+	_ = activityMixinFields0
+	activityFields := schema.Activity{}.Fields()
+	_ = activityFields
+	// activityDescCreatedAt is the schema descriptor for created_at field.
+	activityDescCreatedAt := activityMixinFields0[0].Descriptor()
+	// activity.DefaultCreatedAt holds the default value on creation for the created_at field.
+	activity.DefaultCreatedAt = activityDescCreatedAt.Default.(func() time.Time)
+	// activityDescUpdatedAt is the schema descriptor for updated_at field.
+	activityDescUpdatedAt := activityMixinFields0[1].Descriptor()
+	// activity.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	activity.DefaultUpdatedAt = activityDescUpdatedAt.Default.(func() time.Time)
+	// activity.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	activity.UpdateDefaultUpdatedAt = activityDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// activityDescAction is the schema descriptor for action field.
+	activityDescAction := activityFields[1].Descriptor()
+	// activity.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	activity.ActionValidator = activityDescAction.Validators[0].(func(string) error)
+	// activityDescTargetType is the schema descriptor for target_type field.
+	activityDescTargetType := activityFields[2].Descriptor()
+	// activity.DefaultTargetType holds the default value on creation for the target_type field.
+	activity.DefaultTargetType = activityDescTargetType.Default.(string)
+	// activity.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	activity.TargetTypeValidator = activityDescTargetType.Validators[0].(func(string) error)
+	// activityDescIP is the schema descriptor for ip field.
+	activityDescIP := activityFields[5].Descriptor()
+	// activity.IPValidator is a validator for the "ip" field. It is called by the builders before save.
+	activity.IPValidator = activityDescIP.Validators[0].(func(string) error)
 	davaccountMixin := schema.DavAccount{}.Mixin()
 	davaccountMixinHooks0 := davaccountMixin[0].Hooks()
 	davaccount.Hooks[0] = davaccountMixinHooks0[0]

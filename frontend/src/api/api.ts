@@ -4,6 +4,10 @@ import i18n from "../i18n.ts";
 import {
   AdminListGroupResponse,
   AdminListService,
+  ActivityEntry,
+  ActivityListQuery,
+  ListActivityResponse,
+  UserActivityListQuery,
   ListShareResponse as AdminListShareResponse,
   StoragePolicy as AdminStoragePolicy,
   BatchIDService,
@@ -1959,6 +1963,48 @@ export function batchDeleteEntities(args: BatchIDService): ThunkResponse<void> {
       send(
         `/admin/entity/batch/delete`,
         { method: "POST", data: args },
+        {
+          ...defaultOpts,
+        },
+      ),
+    );
+  };
+}
+
+export function getActivityList(args: ActivityListQuery): ThunkResponse<ListActivityResponse> {
+  return async (dispatch, _getState) => {
+    return await dispatch(
+      send(
+        `/admin/activity`,
+        { method: "GET", params: args },
+        {
+          ...defaultOpts,
+        },
+      ),
+    );
+  };
+}
+
+export function getActivityDetail(id: number): ThunkResponse<ActivityEntry> {
+  return async (dispatch, _getState) => {
+    return await dispatch(
+      send(
+        `/admin/activity/${id}`,
+        { method: "GET" },
+        {
+          ...defaultOpts,
+        },
+      ),
+    );
+  };
+}
+
+export function getUserActivityList(args: UserActivityListQuery): ThunkResponse<ListActivityResponse> {
+  return async (dispatch, _getState) => {
+    return await dispatch(
+      send(
+        `/user/activity`,
+        { method: "GET", params: args },
         {
           ...defaultOpts,
         },

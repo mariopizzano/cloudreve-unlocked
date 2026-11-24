@@ -8,6 +8,49 @@ import (
 )
 
 var (
+	// ActivitiesColumns holds the columns for the "activities" table.
+	ActivitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+		{Name: "action", Type: field.TypeString, Size: 64},
+		{Name: "target_type", Type: field.TypeString, Size: 32, Default: ""},
+		{Name: "target", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "file_id", Type: field.TypeInt, Nullable: true},
+		{Name: "ip", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "user_agent", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+	}
+	// ActivitiesTable holds the schema information for the "activities" table.
+	ActivitiesTable = &schema.Table{
+		Name:       "activities",
+		Columns:    ActivitiesColumns,
+		PrimaryKey: []*schema.Column{ActivitiesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "activity_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ActivitiesColumns[4], ActivitiesColumns[1]},
+			},
+			{
+				Name:    "activity_action_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ActivitiesColumns[5], ActivitiesColumns[1]},
+			},
+			{
+				Name:    "activity_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ActivitiesColumns[1]},
+			},
+			{
+				Name:    "activity_ip_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ActivitiesColumns[9], ActivitiesColumns[1]},
+			},
+		},
+	}
 	// DavAccountsColumns holds the columns for the "dav_accounts" table.
 	DavAccountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -563,6 +606,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		ActivitiesTable,
 		DavAccountsTable,
 		DirectLinksTable,
 		EntitiesTable,

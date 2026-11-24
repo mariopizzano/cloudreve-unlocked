@@ -39,7 +39,7 @@
     "fileSystem": "Filesystem",
     "mediaProcessing": "Elaborazione media",
     "queue": "Coda",
-    "events": "Eventi",
+    "events": "Registro attività",
     "server": "Server",
     "customProps": "Proprietà personalizzate",
     "fullTextSearch": "Ricerca full-text",
@@ -667,8 +667,12 @@
     "duplicateThemeColor": "Un tema con questo colore primario esiste già. Scegli un colore diverso.",
     "themeDes": "Le configurazioni complete disponibili possono essere consultate su <0>Visualizzatore tema predefinito - Material-UI</0>.",
     "defaultTheme": "Predefinito",
-    "auditLog": "Eventi",
+    "auditLog": "Registro attività",
     "auditLogDes": "Configura quali eventi dovrebbero essere registrati. Alcuni eventi potrebbero essere utilizzati dal sistema per fornire funzionalità aggiuntive, es. attività file e attività di accesso.",
+    "activityLogEnabled": "Abilita registrazione attività",
+    "activityLogEnabledDes": "Registra le operazioni sui file e i tentativi di accesso. Le voci includono l'indirizzo IP del client e lo user agent e sono visibili agli amministratori e all'utente a cui appartengono.",
+    "activityLogCaptured": "Attività registrate",
+    "activityLogCapturedDes": "Quando la registrazione è abilitata vengono registrate le seguenti categorie:",
     "systemEvents": "Eventi di sistema",
     "systemEventsDes": "Eventi relativi alle operazioni e stato del sistema.",
     "userEvents": "Eventi utente",
@@ -1440,6 +1444,12 @@
     "deleteXEntities": "Elimina {{num}} Blob",
     "forceDelete": "Forza eliminazione",
     "forceDeleteDes": "Se eliminare il record Blob indipendentemente dal fatto che il file fisico venga eliminato."
+  },
+  "activity": {
+    "dialogTitle": "Dettagli attività",
+    "action": "Azione",
+    "from": "Da",
+    "to": "A"
   },
   "event": {
     "cleanup": "Pulizia",

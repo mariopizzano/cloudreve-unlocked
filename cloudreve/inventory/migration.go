@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/cloudreve/Cloudreve/v4/application/constants"
 	"github.com/cloudreve/Cloudreve/v4/ent"
+	"github.com/cloudreve/Cloudreve/v4/ent/activity"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
 	entmigrate "github.com/cloudreve/Cloudreve/v4/ent/migrate"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
@@ -104,6 +105,63 @@ func migrateRetainedObjectSettings(client *ent.Client, ctx context.Context) erro
 	}
 
 	for _, name := range retainedObjectDefaultSettings {
+		if _, ok := present[name]; ok {
+			continue
+		}
+
+		value := DefaultSettings[name]
+		if override, ok := os.LookupEnv(EnvDefaultOverwritePrefix + name); ok {
+			value = override
+		}
+
+		if _, err := client.Setting.Create().SetName(name).SetValue(value).Save(ctx); err != nil {
+			return fmt.Errorf("failed to insert setting %q: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// activityDefaultSettings lists the settings used by activity logging. They are
+// inserted on databases that already carry the current upstream version
+// marker, otherwise admin updates would not be persisted.
+var activityDefaultSettings = []string{
+	"activity_log_enabled",
+}
+
+// migrateActivities ensures the additive activities table exists on databases
+// whose version marker is already current.
+func migrateActivities(client *ent.Client, ctx context.Context) error {
+	tables := lo.Filter(entmigrate.Tables, func(t *schema.Table, _ int) bool {
+		return t.Name == activity.Table
+	})
+	if len(tables) == 0 {
+		return nil
+	}
+
+	if err := entmigrate.Create(ctx, client.Schema, tables); err != nil {
+		return fmt.Errorf("failed to migrate activities schema: %w", err)
+	}
+
+	return nil
+}
+
+// migrateActivitySettings inserts activity logging settings that are missing on
+// already-initialized databases.
+func migrateActivitySettings(client *ent.Client, ctx context.Context) error {
+	existing, err := client.Setting.Query().
+		Where(setting.NameIn(activityDefaultSettings...)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query activity settings: %w", err)
+	}
+
+	present := make(map[string]struct{}, len(existing))
+	for _, s := range existing {
+		present[s.Name] = struct{}{}
+	}
+
+	for _, name := range activityDefaultSettings {
 		if _, ok := present[name]; ok {
 			continue
 		}
