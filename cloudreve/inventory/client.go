@@ -152,6 +152,13 @@ func (d sqlite3Driver) Open(name string) (conn driver.Conn, err error) {
 	_, err = conn.(sqlite3DriverConn).Exec("PRAGMA foreign_keys = ON;", nil)
 	if err != nil {
 		_ = conn.Close()
+		return
+	}
+	// SQLite has a single writer: wait for external readers/writers (backups,
+	// sqlite3 CLI) instead of failing immediately with "database is locked".
+	_, err = conn.(sqlite3DriverConn).Exec("PRAGMA busy_timeout = 5000;", nil)
+	if err != nil {
+		_ = conn.Close()
 	}
 	return
 }
