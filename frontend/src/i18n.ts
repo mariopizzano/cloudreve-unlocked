@@ -8,40 +8,6 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import ChainedBackend from "i18next-chained-backend";
 import LocalStorageBackend from "i18next-localstorage-backend";
 
-const assetsVersion = typeof __ASSETS_VERSION__ === "string" ? __ASSETS_VERSION__ : "dev";
-const localeCachePrefix = `i18next_${assetsVersion}_`;
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-// @ts-ignore
-i18n
-  .use(ChainedBackend)
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    fallbackLng: "en-US",
-    debug: true,
-    ns: ["common", "application", "dashboard"],
-    load: "currentOnly",
-    defaultNS: "application",
-    interpolation: {
-      escapeValue: false,
-    },
-    backend: {
-      backends: process.env.NODE_ENV === "development" ? [Backend] : [LocalStorageBackend, Backend],
-      backendOptions: [
-        {
-          expirationTime: 7 * 24 * 60 * 60 * 1000, // 7 days
-          prefix: localeCachePrefix,
-          loadPath: `/locales/{{lng}}/{{ns}}.json?v=${encodeURIComponent(assetsVersion)}`,
-        },
-      ],
-    },
-  });
-
-i18n.on("languageChanged", (lng) => {
-  document.documentElement.setAttribute("lang", lng);
-});
-
 export const languages = [
   {
     code: "en-US",
@@ -96,5 +62,57 @@ export const languages = [
     displayName: "العربية",
   },
 ];
+
+// Locale files are shipped with an explicit region suffix (it-IT, en-US, ...).
+// Browsers usually report only the base language (it, en, ...), so normalize the
+// detected value to a supported locale; otherwise i18next would request a
+// missing /locales/it/*.json and fall back to English.
+const normalizeLocale = (lng: string): string => {
+  const lower = lng.toLowerCase();
+  const exact = languages.find((language) => language.code.toLowerCase() === lower);
+  if (exact) {
+    return exact.code;
+  }
+
+  const regional = languages.find((language) => language.code.toLowerCase().startsWith(`${lower}-`));
+  return regional ? regional.code : lng;
+};
+
+const assetsVersion = typeof __ASSETS_VERSION__ === "string" ? __ASSETS_VERSION__ : "dev";
+const localeCachePrefix = `i18next_${assetsVersion}_`;
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+// @ts-ignore
+i18n
+  .use(ChainedBackend)
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    fallbackLng: "en-US",
+    debug: true,
+    ns: ["common", "application", "dashboard"],
+    load: "currentOnly",
+    defaultNS: "application",
+    detection: {
+      convertDetectedLanguage: normalizeLocale,
+    },
+    interpolation: {
+      escapeValue: false,
+    },
+    backend: {
+      backends: process.env.NODE_ENV === "development" ? [Backend] : [LocalStorageBackend, Backend],
+      backendOptions: [
+        {
+          expirationTime: 7 * 24 * 60 * 60 * 1000, // 7 days
+          prefix: localeCachePrefix,
+          loadPath: `/locales/{{lng}}/{{ns}}.json?v=${encodeURIComponent(assetsVersion)}`,
+        },
+      ],
+    },
+  });
+
+i18n.on("languageChanged", (lng) => {
+  document.documentElement.setAttribute("lang", lng);
+});
 
 export default i18n;
