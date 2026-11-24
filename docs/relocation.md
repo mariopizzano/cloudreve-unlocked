@@ -40,8 +40,11 @@ Copia a livello di entità + swap nel database:
 - locale → locale, con cancellazione sorgente: OK
 - B2 cifrato → locale non cifrato, sorgente conservata: OK, hash identico al contenuto decifrato originale
 - locale → locale cifrato: OK, download decifrato con hash identico all'originale
+- **B2 cifrato → locale → B2** (Fase 2): versione + thumbnail spostate entrambe, entità primaria aggiornata,
+  vecchie entità soft-deleted, download condiviso HTTP 200 (109.555 byte) in entrambe le direzioni
+- cleanup manuale degli oggetti locali rimasti dopo il ritorno a B2 (`delete_source=false`)
 
 ## Prossimi passi
 
-- Fase 3: cleanup sicuro degli oggetti sorgente e degli orfani
-- Fase 4: UI di conferma con opzione `delete_source`, progresso per entità e audit
+- Fase 3: cleanup sicuro e automatico degli oggetti sorgente e degli orfani
+- Fase 4: audit dettagliato per entità; la UI chiede già se mantenere o eliminare la copia di origine

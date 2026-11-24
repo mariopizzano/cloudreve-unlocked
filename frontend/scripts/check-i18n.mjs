@@ -10,6 +10,11 @@ const requiredKeys = [
   "fileManager.relocateConfirm",
   "fileManager.relocateNoFiles",
   "fileManager.relocateTaskCreated",
+  "fileManager.relocateSourceTitle",
+  "fileManager.relocateKeepSource",
+  "fileManager.relocateKeepSourceDes",
+  "fileManager.relocateDeleteSource",
+  "fileManager.relocateDeleteSourceDes",
 ];
 
 const locales = ["en-US", "it-IT"];

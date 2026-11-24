@@ -578,10 +578,35 @@ export function relocateFiles(index: number, files: FileResponse[]): AppThunk<Pr
       return;
     }
 
+    let deleteSource = false;
+    try {
+      const sourceChoice = await dispatch(
+        selectOption(
+          [
+            {
+              name: i18next.t("application:fileManager.relocateKeepSource"),
+              description: i18next.t("application:fileManager.relocateKeepSourceDes"),
+              value: "keep",
+            },
+            {
+              name: i18next.t("application:fileManager.relocateDeleteSource"),
+              description: i18next.t("application:fileManager.relocateDeleteSourceDes"),
+              value: "delete",
+            },
+          ],
+          i18next.t("application:fileManager.relocateSourceTitle"),
+        ),
+      );
+      deleteSource = sourceChoice === "delete";
+    } catch (e) {
+      return;
+    }
+
     await dispatch(
       sendRelocate({
         src,
         dst_policy_id: selected,
+        delete_source: deleteSource,
       }),
     );
 
