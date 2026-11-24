@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/cloudreve/Cloudreve/v4/ent"
@@ -15,7 +16,16 @@ import (
 const (
 	// StoragePolicyCacheKey is the cache key of storage policy.
 	StoragePolicyCacheKey = "storage_policy_"
+	// LoadBalanceCounterKeyPrefix is the KV key prefix of the persistent round-robin
+	// counter of a load_balance policy.
+	LoadBalanceCounterKeyPrefix = "load_balance_counter_"
 )
+
+// LoadBalanceCounterKey returns the KV key of the persistent round-robin counter for the
+// given load_balance policy.
+func LoadBalanceCounterKey(policyID int) string {
+	return LoadBalanceCounterKeyPrefix + strconv.Itoa(policyID)
+}
 
 func init() {
 	gob.Register(ent.StoragePolicy{})
@@ -38,6 +48,11 @@ type (
 		ListPolicyByType(ctx context.Context, t types.PolicyType) ([]*ent.StoragePolicy, error)
 		// ListPolicies returns the storage policies with pagination.
 		ListPolicies(ctx context.Context, args *ListPolicyParameters) (*ListPolicyResult, error)
+		// ResolveUploadPolicy returns a concrete storage policy to be used for a new
+		// upload. If the given policy is not a load_balance policy it is returned as-is.
+		// Otherwise a member policy is selected by the configured strategy. When advance
+		// is true the persistent round-robin counter is advanced.
+		ResolveUploadPolicy(ctx context.Context, policy *ent.StoragePolicy, advance bool) (*ent.StoragePolicy, error)
 		// Upsert upserts the storage policy.
 		Upsert(ctx context.Context, policy *ent.StoragePolicy) (*ent.StoragePolicy, error)
 		// Delete deletes the storage policy.
@@ -178,6 +193,152 @@ func (c *storagePolicyClient) GetPolicyByID(ctx context.Context, id int) (*ent.S
 	}
 
 	return res, nil
+}
+
+// LoadBalanceMembers returns the de-duplicated, normalized member list configured on a
+// load_balance policy, preserving the configured order. Invalid policy IDs are dropped
+// and non-positive weights are normalized to the default weight.
+func LoadBalanceMembers(policy *ent.StoragePolicy) []types.LoadBalanceMember {
+	if policy == nil || policy.Settings == nil {
+		return nil
+	}
+
+	seen := make(map[int]struct{}, len(policy.Settings.Members))
+	members := make([]types.LoadBalanceMember, 0, len(policy.Settings.Members))
+	for _, member := range policy.Settings.Members {
+		if member.PolicyID <= 0 {
+			continue
+		}
+		if _, ok := seen[member.PolicyID]; ok {
+			continue
+		}
+		seen[member.PolicyID] = struct{}{}
+
+		weight := member.Weight
+		if weight <= 0 {
+			weight = types.LoadBalanceDefaultWeight
+		}
+		if weight > types.LoadBalanceMaxWeight {
+			weight = types.LoadBalanceMaxWeight
+		}
+
+		members = append(members, types.LoadBalanceMember{
+			PolicyID: member.PolicyID,
+			Weight:   weight,
+		})
+	}
+
+	return members
+}
+
+// BuildLoadBalanceCycle returns a deterministic, weighted cyclic schedule of member
+// policy IDs. Each member appears Weight times over a cycle of sum(weights) entries.
+// Occurrences are evenly interleaved using fractional slot positions, so 3:1 becomes
+// A, B, A, A instead of a bursty A, A, A, B. Ties prefer the member with the smaller
+// weight and then the configured order, keeping the result stable.
+func BuildLoadBalanceCycle(members []types.LoadBalanceMember) []int {
+	type slot struct {
+		position float64
+		weight   int
+		order    int
+		policyID int
+	}
+
+	total := 0
+	for _, member := range members {
+		total += member.Weight
+	}
+	if total <= 0 {
+		return nil
+	}
+
+	slots := make([]slot, 0, total)
+	order := 0
+	for _, member := range members {
+		for k := 0; k < member.Weight; k++ {
+			slots = append(slots, slot{
+				position: (float64(k) + 0.5) / float64(member.Weight),
+				weight:   member.Weight,
+				order:    order,
+				policyID: member.PolicyID,
+			})
+			order++
+		}
+	}
+
+	sort.SliceStable(slots, func(i, j int) bool {
+		if slots[i].position == slots[j].position {
+			if slots[i].weight == slots[j].weight {
+				return slots[i].order < slots[j].order
+			}
+			return slots[i].weight < slots[j].weight
+		}
+		return slots[i].position < slots[j].position
+	})
+
+	cycle := make([]int, len(slots))
+	for i, s := range slots {
+		cycle[i] = s.policyID
+	}
+
+	return cycle
+}
+
+// nextLoadBalanceIndex advances the persistent round-robin counter of a load_balance
+// policy and returns the index of the member to use next. It is exported through
+// ResolveUploadPolicy but kept separate so the selection logic can be unit tested.
+func nextLoadBalanceIndex(kv cache.Driver, policyID int, memberCount int) (int, error) {
+	if memberCount <= 0 {
+		return 0, fmt.Errorf("load balance policy has no member policies")
+	}
+	if kv == nil {
+		return 0, nil
+	}
+
+	counter, err := kv.Incr(LoadBalanceCounterKey(policyID), 0)
+	if err != nil {
+		return 0, fmt.Errorf("failed to advance load balance counter: %w", err)
+	}
+	if counter <= 0 {
+		return 0, nil
+	}
+
+	return int((counter - 1) % int64(memberCount)), nil
+}
+
+// ResolveUploadPolicy implements StoragePolicyClient.
+func (c *storagePolicyClient) ResolveUploadPolicy(ctx context.Context, policy *ent.StoragePolicy, advance bool) (*ent.StoragePolicy, error) {
+	if policy == nil || policy.Type != types.PolicyTypeLoadBalance {
+		return policy, nil
+	}
+
+	ids := LoadBalanceMembers(policy)
+	cycle := BuildLoadBalanceCycle(ids)
+	if len(cycle) == 0 {
+		return nil, fmt.Errorf("load balance policy %d has no member policies", policy.ID)
+	}
+
+	start := 0
+	if advance {
+		var err error
+		start, err = nextLoadBalanceIndex(c.cache, policy.ID, len(cycle))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Try each member starting from the selected index so that a missing or deleted
+	// member does not break the whole policy.
+	for offset := 0; offset < len(cycle); offset++ {
+		id := cycle[(start+offset)%len(cycle)]
+		member, err := c.GetPolicyByID(ctx, id)
+		if err != nil || member == nil || member.Type == types.PolicyTypeLoadBalance {
+			continue
+		}
+		return member, nil
+	}
+
+	return nil, fmt.Errorf("load balance policy %d has no valid member policies", policy.ID)
 }
 
 func (c *storagePolicyClient) ListPolicyByType(ctx context.Context, t types.PolicyType) ([]*ent.StoragePolicy, error) {

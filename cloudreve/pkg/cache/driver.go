@@ -16,6 +16,11 @@ type Driver interface {
 	// 取值，并返回是否成功
 	Get(key string) (any, bool)
 
+	// Incr atomically increments the integer value stored at key and returns the new
+	// value. A missing key is initialized to 1. When ttl is positive, the expiration
+	// is (re)applied after the increment.
+	Incr(key string, ttl int) (int64, error)
+
 	// 批量取值，返回成功取值的map即不存在的值
 	Gets(keys []string, prefix string) (map[string]any, []string)
 

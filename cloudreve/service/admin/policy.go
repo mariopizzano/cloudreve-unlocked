@@ -102,11 +102,135 @@ func (service *SingleStoragePolicyService) Delete(c *gin.Context) error {
 		return serializer.NewError(serializer.CodePolicyUsedByFiles, "", nil)
 	}
 
+	// If this policy is a member of a load_balance policy, deleting it would leave the
+	// virtual policy with a dangling member, so refuse the deletion.
+	memberOf, err := findLoadBalancePolicyUsing(ctx, storagePolicyClient, service.ID)
+	if err != nil {
+		return serializer.NewError(serializer.CodeDBError, "Failed to check if policy is used by a load balance policy", err)
+	}
+
+	if memberOf != nil {
+		return serializer.NewError(serializer.CodePolicyUsedByLoadBalance, memberOf.Name, nil)
+	}
+
 	err = storagePolicyClient.Delete(ctx, policy)
 	if err != nil {
 		return serializer.NewError(serializer.CodeDBError, "Failed to delete policy", err)
 	}
 
+	_ = dep.KV().Delete(inventory.LoadBalanceCounterKeyPrefix, strconv.Itoa(service.ID))
+
+	return nil
+}
+
+// findLoadBalancePolicyUsing returns the first load_balance policy that references the
+// given concrete policy as a member, or nil if none does.
+func findLoadBalancePolicyUsing(ctx context.Context, client inventory.StoragePolicyClient, policyID int) (*ent.StoragePolicy, error) {
+	res, err := client.ListPolicyByType(ctx, types.PolicyTypeLoadBalance)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, policy := range res {
+		for _, member := range inventory.LoadBalanceMembers(policy) {
+			if member.PolicyID == policyID {
+				return policy, nil
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// validateLoadBalancePolicy validates and normalizes the member configuration of a
+// load_balance policy. It is a no-op for other policy types.
+func validateLoadBalancePolicy(ctx context.Context, client inventory.StoragePolicyClient, policy *ent.StoragePolicy) error {
+	if policy.Type != types.PolicyTypeLoadBalance {
+		return nil
+	}
+
+	if policy.Settings == nil {
+		policy.Settings = &types.PolicySetting{}
+	}
+
+	ids := inventory.LoadBalanceMembers(policy)
+	members := make(map[int]*ent.StoragePolicy, len(ids))
+	for _, member := range ids {
+		loaded, err := client.GetPolicyByID(ctx, member.PolicyID)
+		if err != nil {
+			return serializer.NewError(serializer.CodePolicyNotExist, fmt.Sprintf("Member policy %d does not exist", member.PolicyID), err)
+		}
+		members[member.PolicyID] = loaded
+	}
+
+	return validateLoadBalanceMembers(policy, members)
+}
+
+// validateLoadBalanceMembers validates an already loaded set of member policies and
+// normalizes the policy settings in place.
+func validateLoadBalanceMembers(policy *ent.StoragePolicy, members map[int]*ent.StoragePolicy) error {
+	if policy.Settings == nil {
+		policy.Settings = &types.PolicySetting{}
+	}
+
+	strategy := policy.Settings.LoadBalanceStrategy
+	if strategy == "" {
+		strategy = types.LoadBalanceStrategyRoundRobin
+	}
+	if strategy != types.LoadBalanceStrategyRoundRobin {
+		return serializer.NewError(serializer.CodeParamErr, "Unsupported load balance strategy: "+strategy, nil)
+	}
+	policy.Settings.LoadBalanceStrategy = strategy
+
+	normalized := inventory.LoadBalanceMembers(policy)
+	if len(normalized) == 0 {
+		return serializer.NewError(serializer.CodeParamErr, "A load balance policy requires at least one member policy", nil)
+	}
+
+	var (
+		firstType      string
+		firstRelay     bool
+		firstChunkSize int64
+	)
+	for i, configured := range normalized {
+		if configured.PolicyID == policy.ID {
+			return serializer.NewError(serializer.CodeParamErr, "A load balance policy cannot reference itself", nil)
+		}
+
+		member, ok := members[configured.PolicyID]
+		if !ok || member == nil {
+			return serializer.NewError(serializer.CodePolicyNotExist, fmt.Sprintf("Member policy %d does not exist", configured.PolicyID), nil)
+		}
+
+		if member.Type == types.PolicyTypeLoadBalance {
+			return serializer.NewError(serializer.CodeParamErr, "A load balance policy cannot include another load balance policy", nil)
+		}
+
+		// The client picks its uploader and chunking strategy from the policy returned
+		// when listing a folder. Keep all members compatible with each other so that
+		// whichever member is selected works with that choice.
+		relay := member.Settings != nil && member.Settings.Relay
+		chunkSize := int64(0)
+		if member.Settings != nil {
+			chunkSize = member.Settings.ChunkSize
+		}
+		if i == 0 {
+			firstType, firstRelay, firstChunkSize = member.Type, relay, chunkSize
+			continue
+		}
+
+		if member.Type != firstType {
+			return serializer.NewError(serializer.CodeParamErr, "All member policies must use the same storage provider type", nil)
+		}
+		if relay != firstRelay {
+			return serializer.NewError(serializer.CodeParamErr, "All member policies must use the same upload relay setting", nil)
+		}
+		if chunkSize != firstChunkSize {
+			return serializer.NewError(serializer.CodeParamErr, "All member policies must use the same chunk size", nil)
+		}
+	}
+
+	policy.Settings.Members = normalized
 	return nil
 }
 
@@ -248,6 +372,16 @@ func (service *SingleStoragePolicyService) Get(c *gin.Context) (*GetStoragePolic
 	}
 
 	res := &GetStoragePolicyResponse{StoragePolicy: policy}
+	if policy.Type == types.PolicyTypeLoadBalance {
+		for _, configured := range inventory.LoadBalanceMembers(policy) {
+			member, err := storagePolicyClient.GetPolicyByID(ctx, configured.PolicyID)
+			if err != nil {
+				continue
+			}
+			res.MemberPolicies = append(res.MemberPolicies, member)
+		}
+	}
+
 	if c.Query(countEntityQuery) != "" {
 		count, size, err := dep.FileClient().CountEntityByStoragePolicyID(ctx, service.ID)
 		if err != nil {
@@ -275,13 +409,18 @@ func (service *CreateStoragePolicyService) Create(c *gin.Context) (*GetStoragePo
 		service.Policy.DirNameRule = util.DataPath("uploads/{uid}/{path}")
 	}
 
+	if err := validateLoadBalancePolicy(c, storagePolicyClient, service.Policy); err != nil {
+		return nil, err
+	}
+
 	service.Policy.ID = 0
 	policy, err := storagePolicyClient.Upsert(c, service.Policy)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to create policy", err)
 	}
 
-	return &GetStoragePolicyResponse{StoragePolicy: policy}, nil
+	s := SingleStoragePolicyService{ID: policy.ID}
+	return s.Get(c)
 }
 
 type (
@@ -306,6 +445,23 @@ func (service *UpdateStoragePolicyService) Update(c *gin.Context) (*GetStoragePo
 
 	service.Policy.ID = idInt
 
+	if service.Policy.Type == types.PolicyTypeLoadBalance {
+		// A concrete policy cannot become a load_balance policy while it is still a
+		// member of another load_balance policy, otherwise nesting would be introduced.
+		memberOf, err := findLoadBalancePolicyUsing(c, storagePolicyClient, idInt)
+		if err != nil {
+			return nil, serializer.NewError(serializer.CodeDBError, "Failed to check load balance membership", err)
+		}
+		if memberOf != nil {
+			return nil, serializer.NewError(serializer.CodeParamErr,
+				fmt.Sprintf("Policy is a member of load balance policy %q and cannot become a load balance policy", memberOf.Name), nil)
+		}
+	}
+
+	if err := validateLoadBalancePolicy(c, storagePolicyClient, service.Policy); err != nil {
+		return nil, err
+	}
+
 	sc, tx, ctx, err := inventory.WithTx(c, storagePolicyClient)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to create transaction", err)
@@ -322,6 +478,9 @@ func (service *UpdateStoragePolicyService) Update(c *gin.Context) (*GetStoragePo
 	}
 
 	_ = dep.KV().Delete(manager.EntityUrlCacheKeyPrefix)
+
+	// Member order or selection may have changed, so restart the round-robin sequence.
+	_ = dep.KV().Delete(inventory.LoadBalanceCounterKeyPrefix, strconv.Itoa(idInt))
 
 	s := SingleStoragePolicyService{ID: idInt}
 	return s.Get(c)

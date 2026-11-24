@@ -144,6 +144,7 @@ export interface StoragePolicy extends CommonMixin {
   };
   entities_count?: number;
   entities_size?: number;
+  member_policies?: StoragePolicy[];
   hash_id?: string;
 }
 
@@ -244,6 +245,17 @@ export interface PolicySetting {
   qiniu_upload_cdn?: boolean;
   chunk_concurrency?: number;
   encryption?: boolean;
+  members?: LoadBalanceMember[];
+  load_balance_strategy?: string;
+}
+
+export interface LoadBalanceMember {
+  policy_id: number;
+  weight: number;
+}
+
+export enum LoadBalanceStrategy {
+  round_robin = "round_robin",
 }
 
 export interface User extends CommonMixin {

@@ -49,6 +49,13 @@ func (f *DBFS) PreValidateUpload(ctx context.Context, dst *fs.URI, files ...fs.P
 		return err
 	}
 
+	// Validation is read-only, so do not advance the load balance counter. The first
+	// usable member is used as a representative for the folder's effective policy.
+	policy, err = f.resolveLoadBalancePolicy(ctx, policy, false)
+	if err != nil {
+		return err
+	}
+
 	// validate upload request
 	for _, file := range files {
 		if file.OmitName {
@@ -130,6 +137,13 @@ func (f *DBFS) PrepareUpload(ctx context.Context, req *fs.UploadRequest, opts ..
 	} else {
 		policy, err = f.storagePolicyClient.GetPolicyByID(ctx, req.Props.PreferredStoragePolicy)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve the virtual load balance policy to the concrete member that will receive
+	// this upload. The counter is advanced exactly once per upload session.
+	policy, err = f.resolveLoadBalancePolicy(ctx, policy, true)
 	if err != nil {
 		return nil, err
 	}

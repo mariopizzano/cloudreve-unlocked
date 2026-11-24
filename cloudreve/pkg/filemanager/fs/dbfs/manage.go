@@ -127,6 +127,12 @@ func (f *DBFS) Create(ctx context.Context, path *fs.URI, fileType types.FileType
 				return nil, err
 			}
 
+			// Do not advance the load balance counter for a read-only validation.
+			policy, err = f.resolveLoadBalancePolicy(ctx, policy, false)
+			if err != nil {
+				return nil, err
+			}
+
 			if err := validateExtension(desired[i], policy); err != nil {
 				return nil, fs.ErrIllegalObjectName.WithError(err)
 			}
@@ -178,6 +184,12 @@ func (f *DBFS) Rename(ctx context.Context, path *fs.URI, newName string) (fs.Fil
 
 	// If target is a file, validate file extension
 	policy, err := f.getPreferredPolicy(ctx, target)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Renaming does not create a new upload; do not advance the load balance counter.
+	policy, err = f.resolveLoadBalancePolicy(ctx, policy, false)
 	if err != nil {
 		return nil, nil, err
 	}

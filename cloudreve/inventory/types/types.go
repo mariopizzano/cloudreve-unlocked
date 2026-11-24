@@ -105,6 +105,20 @@ type (
 		ChunkConcurrency int `json:"chunk_concurrency,omitempty"`
 		// Whether to enable file encryption.
 		Encryption bool `json:"encryption,omitempty"`
+		// Members is the ordered list of concrete member policies used by a
+		// load_balance policy. It is ignored for other policy types.
+		Members []LoadBalanceMember `json:"members,omitempty"`
+		// LoadBalanceStrategy selects how a member policy is picked. An empty value
+		// defaults to LoadBalanceStrategyRoundRobin.
+		LoadBalanceStrategy string `json:"load_balance_strategy,omitempty"`
+	}
+
+	// LoadBalanceMember references a concrete storage policy and the relative weight
+	// used when distributing new uploads. Weight must be positive; a missing or
+	// non-positive weight is treated as 1.
+	LoadBalanceMember struct {
+		PolicyID int `json:"policy_id"`
+		Weight   int `json:"weight"`
 	}
 
 	FileType         int
@@ -309,6 +323,20 @@ const (
 	PolicyTypeOd     = "onedrive"
 	PolicyTypeRemote = "remote"
 	PolicyTypeObs    = "obs"
+	// PolicyTypeLoadBalance is a virtual policy that distributes new uploads across
+	// one or more concrete member policies.
+	PolicyTypeLoadBalance = "load_balance"
+)
+
+const (
+	// LoadBalanceStrategyRoundRobin picks member policies using a deterministic,
+	// weighted cyclic schedule.
+	LoadBalanceStrategyRoundRobin = "round_robin"
+	// LoadBalanceDefaultWeight is used when a member has no valid weight configured.
+	LoadBalanceDefaultWeight = 1
+	// LoadBalanceMaxWeight is the upper bound accepted for a single member weight. It
+	// keeps the generated distribution cycle reasonably small.
+	LoadBalanceMaxWeight = 1000
 )
 
 const (

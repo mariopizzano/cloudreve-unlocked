@@ -15,6 +15,8 @@ import (
 // MemoStore 内存存储驱动
 type MemoStore struct {
 	Store *sync.Map
+	// incrMu serializes Incr so counter updates are atomic within the process.
+	incrMu sync.Mutex
 }
 
 // item 存储的对象
@@ -92,6 +94,26 @@ func (store *MemoStore) Set(key string, value any, ttl int) error {
 // Get 取值
 func (store *MemoStore) Get(key string) (any, bool) {
 	return getValue(store.Store.Load(key))
+}
+
+// Incr atomically increments an integer counter under the given key.
+func (store *MemoStore) Incr(key string, ttl int) (int64, error) {
+	store.incrMu.Lock()
+	defer store.incrMu.Unlock()
+
+	var current int64
+	if value, ok := getValue(store.Store.Load(key)); ok {
+		switch typed := value.(type) {
+		case int64:
+			current = typed
+		case int:
+			current = int64(typed)
+		}
+	}
+
+	current++
+	store.Store.Store(key, newItem(current, ttl))
+	return current, nil
 }
 
 // Gets 批量取值

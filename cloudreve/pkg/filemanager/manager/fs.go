@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cloudreve/Cloudreve/v4/ent"
 	"github.com/cloudreve/Cloudreve/v4/inventory/types"
@@ -84,6 +85,8 @@ func (m *manager) GetStorageDriver(ctx context.Context, policy *ent.StoragePolic
 		return upyun.New(ctx, policy, m.settings, m.config, m.l, m.dep.MimeDetector(ctx))
 	case types.PolicyTypeOd:
 		return onedrive.New(ctx, policy, m.settings, m.config, m.l, m.dep.CredManager())
+	case types.PolicyTypeLoadBalance:
+		return nil, ErrUnknownPolicyType.WithError(errors.New("load balance policy must be resolved to a member policy before obtaining a driver"))
 	default:
 		return nil, ErrUnknownPolicyType
 	}

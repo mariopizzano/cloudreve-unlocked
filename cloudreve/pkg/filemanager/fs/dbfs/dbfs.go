@@ -206,6 +206,8 @@ func (f *DBFS) List(ctx context.Context, path *fs.URI, opts ...fs.Option) (fs.Fi
 		storagePolicy, err = f.getPreferredPolicy(ctx, parent)
 		if err != nil {
 			f.l.Warning("Failed to get preferred policy: %v", err)
+		} else if storagePolicy, err = f.resolveLoadBalancePolicy(ctx, storagePolicy, false); err != nil {
+			f.l.Warning("Failed to resolve load balance policy: %v", err)
 		}
 	}
 
@@ -609,6 +611,12 @@ func (f *DBFS) createFile(ctx context.Context, parent *File, name string, fileTy
 			return nil, err
 		}
 
+		// A new file is a new upload, so advance the load balance counter.
+		policy, err = f.resolveLoadBalancePolicy(ctx, policy, true)
+		if err != nil {
+			return nil, err
+		}
+
 		createFileArgs.StoragePolicyID = policy.ID
 	}
 
@@ -703,6 +711,24 @@ func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.Storage
 	}
 
 	return groupPolicy, nil
+}
+
+// resolveLoadBalancePolicy replaces a virtual load_balance policy with a concrete member
+// policy. Entities and files must always reference concrete policies. When advance is
+// true the persistent round-robin counter is advanced, which should only happen when a
+// new upload or file is actually created (not for validation or listing).
+func (f *DBFS) resolveLoadBalancePolicy(ctx context.Context, policy *ent.StoragePolicy, advance bool) (*ent.StoragePolicy, error) {
+	if policy == nil || policy.Type != types.PolicyTypeLoadBalance {
+		return policy, nil
+	}
+
+	resolved, err := f.storagePolicyClient.ResolveUploadPolicy(ctx, policy, advance)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodePolicyNotAllowed,
+			"The load balance storage policy has no valid member policy", err)
+	}
+
+	return resolved, nil
 }
 
 func (f *DBFS) getFileByPath(ctx context.Context, navigator Navigator, path *fs.URI) (*File, error) {

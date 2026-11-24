@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { deleteStoragePolicy, getStoragePolicyDetail } from "../../../api/api";
 import { StoragePolicy } from "../../../api/dashboard";
+import { PolicyType } from "../../../api/explorer";
 import { useAppDispatch } from "../../../redux/hooks";
 import { confirmOperation } from "../../../redux/thunks/dialog";
 import { sizeToString } from "../../../util";
@@ -133,6 +134,17 @@ const StoragePolicyCard = ({ policy, onRefresh, loading }: StoragePolicyCardProp
           )}
         </Box>
         <NoWrapBox>
+          {policy?.type === PolicyType.load_balance && (
+            <SquareChip
+              sx={{ mr: 1 }}
+              size="small"
+              variant="outlined"
+              color="primary"
+              label={t("policy.xChildPolicies", {
+                count: policy.settings?.members?.length ?? 0,
+              })}
+            />
+          )}
           {policy?.edges.groups?.map((group) => (
             <SquareChip sx={{ mr: 1 }} key={group.name} label={group.name} size="small" />
           ))}

@@ -88,6 +88,8 @@ type GetStoragePolicyResponse struct {
 	*ent.StoragePolicy
 	EntitiesCount int `json:"entities_count,omitempty"`
 	EntitiesSize  int `json:"entities_size,omitempty"`
+	// MemberPolicies is the expanded list of member policies for a load_balance policy.
+	MemberPolicies []*ent.StoragePolicy `json:"member_policies,omitempty"`
 }
 
 type ListNodeResponse struct {

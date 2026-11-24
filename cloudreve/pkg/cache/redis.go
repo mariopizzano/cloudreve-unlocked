@@ -128,6 +128,29 @@ func (store *RedisStore) Get(key string) (any, bool) {
 
 }
 
+// Incr atomically increments an integer counter under the given key. The Redis INCR
+// command is atomic across processes, so this is safe to use from multiple nodes.
+func (store *RedisStore) Incr(key string, ttl int) (int64, error) {
+	rc := store.pool.Get()
+	defer rc.Close()
+	if rc.Err() != nil {
+		return 0, rc.Err()
+	}
+
+	current, err := redis.Int64(rc.Do("INCR", key))
+	if err != nil {
+		return 0, err
+	}
+
+	if ttl > 0 && current == 1 {
+		if _, err := rc.Do("EXPIRE", key, ttl); err != nil {
+			return current, err
+		}
+	}
+
+	return current, nil
+}
+
 // Gets 批量取值
 func (store *RedisStore) Gets(keys []string, prefix string) (map[string]any, []string) {
 	rc := store.pool.Get()
