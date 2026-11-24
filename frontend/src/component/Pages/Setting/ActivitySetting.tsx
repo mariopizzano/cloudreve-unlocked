@@ -67,7 +67,7 @@ const ActivitySetting = () => {
     <Stack spacing={4}>
       <Box>
         <Typography variant="h6" gutterBottom>
-          {t("activity.fileHistory")}
+          {t("common:activity.fileHistory")}
         </Typography>
         <TableContainer component={StyledTableContainerPaper}>
           <Table size="small" sx={{ tableLayout: "fixed" }}>
@@ -125,7 +125,7 @@ const ActivitySetting = () => {
 
       <Box>
         <Typography variant="h6" gutterBottom>
-          {t("activity.recentLogins")}
+          {t("common:activity.recentLogins")}
         </Typography>
         <List disablePadding>
           {!loginLoading &&

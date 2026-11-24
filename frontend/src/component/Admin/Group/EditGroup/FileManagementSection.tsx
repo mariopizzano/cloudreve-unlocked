@@ -196,20 +196,6 @@ const FileManagementSection = () => {
               </SettingForm>
             </Collapse>
             <SettingForm lgWidth={5}>
-              <FormControl fullWidth onClick={onProClick}>
-                <FormControlLabel
-                  control={<Switch checked={false} />}
-                  label={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      {t("group.migratePolicy")}
-                      <ProChip size="small" label="Pro" />
-                    </Box>
-                  }
-                />
-                <NoMarginHelperText>{t("group.migratePolicyDes")}</NoMarginHelperText>
-              </FormControl>
-            </SettingForm>
-            <SettingForm lgWidth={5}>
               <FormControl fullWidth>
                 <FormControlLabel
                   control={
