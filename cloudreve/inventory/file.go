@@ -144,6 +144,10 @@ type (
 		NewSource       string
 		StoragePolicyID int
 		EncryptMetadata *types.EncryptMetadata
+		// DeleteSource indicates whether the caller will remove the old physical
+		// object right away. When false and the old entity is not shared, a
+		// retained object record is created so it can be cleaned up later.
+		DeleteSource bool
 	}
 
 	CopyParameter struct {
@@ -439,6 +443,26 @@ func (f *fileClient) RelocateEntity(ctx context.Context, fileID int, oldEntityID
 		// Hard-delete the old row: a soft-deleted entity is never picked up by the
 		// entity collector, so it would leak forever. The caller handles the
 		// physical object (immediate delete or retention).
+		//
+		// When the caller asks to keep the source object, record it first so the
+		// periodic cleanup can remove it after the retention window. Unlink-only
+		// entities are deliberately excluded: their physical object does not
+		// belong to Cloudreve and must never be deleted.
+		if !args.DeleteSource && (oldEntity.Props == nil || !oldEntity.Props.UnlinkOnly) {
+			if _, err := tx.RetainedObject.Create().
+				SetStoragePolicyID(oldEntity.StoragePolicyEntities).
+				SetSource(oldEntity.Source).
+				SetSize(oldEntity.Size).
+				SetEntityType(oldEntity.Type).
+				SetFileID(fileModel.ID).
+				SetEntityID(oldEntity.ID).
+				SetOwnerID(fileModel.OwnerID).
+				SetState(RetainedObjectStatePending).
+				Save(ctx); err != nil {
+				return nil, fmt.Errorf("failed to record retained object: %w", err)
+			}
+		}
+
 		if err := tx.Entity.DeleteOne(oldEntity).Exec(schema.SkipSoftDelete(ctx)); err != nil {
 			return nil, fmt.Errorf("failed to delete old entity: %w", err)
 		}

@@ -39,6 +39,9 @@ type OAuthGrant func(*sql.Selector)
 // Passkey is the predicate function for passkey builders.
 type Passkey func(*sql.Selector)
 
+// RetainedObject is the predicate function for retainedobject builders.
+type RetainedObject func(*sql.Selector)
+
 // Setting is the predicate function for setting builders.
 type Setting func(*sql.Selector)
 

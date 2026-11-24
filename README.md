@@ -11,12 +11,13 @@ Fork open source di [Cloudreve](https://github.com/cloudreve/Cloudreve) che aggi
   - sposta entità primaria, versioni e thumbnail;
   - supporta sorgenti e destinazioni cifrate;
   - clona le entità condivise senza toccare gli altri file;
-  - scelta tra mantenere o eliminare la copia di origine dopo il trasferimento.
+  - scelta tra mantenere o eliminare la copia di origine dopo il trasferimento;
+  - cleanup automatico periodico degli oggetti di origine trattenuti (`delete_source=false`),
+    con retention configurabile e endpoint admin per consultazione e pulizia forzata.
 - **Pipeline i18n**: cache delle traduzioni versionata per build e controllo delle chiavi richieste in fase di build.
 
 ## Cosa manca
 
-- cleanup automatico degli oggetti di origine trattenuti (`delete_source=false`): restano sulla policy di origine e vanno rimossi manualmente;
 - load balancer policy;
 - policy multiple per gruppo;
 - regole avanzate di policy per directory;

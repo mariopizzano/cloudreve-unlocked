@@ -79,6 +79,14 @@ type DBFS struct {
 	UseSSEForSearch            bool
 }
 
+// RetainedObjectSetting controls the periodic cleanup of physical objects kept
+// after a relocation with delete_source disabled.
+type RetainedObjectSetting struct {
+	Enabled   bool
+	Retention time.Duration
+	BatchSize int
+}
+
 type (
 	QueueType    string
 	QueueSetting struct {
@@ -108,9 +116,10 @@ var (
 type CronType string
 
 var (
-	CronTypeEntityCollect    = CronType("entity_collect")
-	CronTypeTrashBinCollect  = CronType("trash_bin_collect")
-	CronTypeOauthCredRefresh = CronType("oauth_cred_refresh")
+	CronTypeEntityCollect         = CronType("entity_collect")
+	CronTypeTrashBinCollect       = CronType("trash_bin_collect")
+	CronTypeOauthCredRefresh      = CronType("oauth_cred_refresh")
+	CronTypeRetainedObjectCleanup = CronType("retained_object_cleanup")
 )
 
 type Theme struct {

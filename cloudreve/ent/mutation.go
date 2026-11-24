@@ -23,6 +23,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
 	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
 	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
+	"github.com/cloudreve/Cloudreve/v4/ent/retainedobject"
 	"github.com/cloudreve/Cloudreve/v4/ent/setting"
 	"github.com/cloudreve/Cloudreve/v4/ent/share"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
@@ -43,22 +44,23 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeDavAccount    = "DavAccount"
-	TypeDirectLink    = "DirectLink"
-	TypeEntity        = "Entity"
-	TypeFile          = "File"
-	TypeFsEvent       = "FsEvent"
-	TypeGroup         = "Group"
-	TypeMetadata      = "Metadata"
-	TypeNode          = "Node"
-	TypeOAuthClient   = "OAuthClient"
-	TypeOAuthGrant    = "OAuthGrant"
-	TypePasskey       = "Passkey"
-	TypeSetting       = "Setting"
-	TypeShare         = "Share"
-	TypeStoragePolicy = "StoragePolicy"
-	TypeTask          = "Task"
-	TypeUser          = "User"
+	TypeDavAccount     = "DavAccount"
+	TypeDirectLink     = "DirectLink"
+	TypeEntity         = "Entity"
+	TypeFile           = "File"
+	TypeFsEvent        = "FsEvent"
+	TypeGroup          = "Group"
+	TypeMetadata       = "Metadata"
+	TypeNode           = "Node"
+	TypeOAuthClient    = "OAuthClient"
+	TypeOAuthGrant     = "OAuthGrant"
+	TypePasskey        = "Passkey"
+	TypeRetainedObject = "RetainedObject"
+	TypeSetting        = "Setting"
+	TypeShare          = "Share"
+	TypeStoragePolicy  = "StoragePolicy"
+	TypeTask           = "Task"
+	TypeUser           = "User"
 )
 
 // DavAccountMutation represents an operation that mutates the DavAccount nodes in the graph.
@@ -10838,6 +10840,1315 @@ func (m *PasskeyMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Passkey edge %s", name)
+}
+
+// RetainedObjectMutation represents an operation that mutates the RetainedObject nodes in the graph.
+type RetainedObjectMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *int
+	created_at           *time.Time
+	updated_at           *time.Time
+	deleted_at           *time.Time
+	storage_policy_id    *int
+	addstorage_policy_id *int
+	source               *string
+	size                 *int64
+	addsize              *int64
+	entity_type          *int
+	addentity_type       *int
+	file_id              *int
+	addfile_id           *int
+	entity_id            *int
+	addentity_id         *int
+	owner_id             *int
+	addowner_id          *int
+	state                *string
+	attempts             *int
+	addattempts          *int
+	last_error           *string
+	clearedFields        map[string]struct{}
+	done                 bool
+	oldValue             func(context.Context) (*RetainedObject, error)
+	predicates           []predicate.RetainedObject
+}
+
+var _ ent.Mutation = (*RetainedObjectMutation)(nil)
+
+// retainedobjectOption allows management of the mutation configuration using functional options.
+type retainedobjectOption func(*RetainedObjectMutation)
+
+// newRetainedObjectMutation creates new mutation for the RetainedObject entity.
+func newRetainedObjectMutation(c config, op Op, opts ...retainedobjectOption) *RetainedObjectMutation {
+	m := &RetainedObjectMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRetainedObject,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRetainedObjectID sets the ID field of the mutation.
+func withRetainedObjectID(id int) retainedobjectOption {
+	return func(m *RetainedObjectMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RetainedObject
+		)
+		m.oldValue = func(ctx context.Context) (*RetainedObject, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RetainedObject.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRetainedObject sets the old RetainedObject of the mutation.
+func withRetainedObject(node *RetainedObject) retainedobjectOption {
+	return func(m *RetainedObjectMutation) {
+		m.oldValue = func(context.Context) (*RetainedObject, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RetainedObjectMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RetainedObjectMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RetainedObjectMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RetainedObjectMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RetainedObject.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RetainedObjectMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RetainedObjectMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RetainedObjectMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *RetainedObjectMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *RetainedObjectMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *RetainedObjectMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *RetainedObjectMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *RetainedObjectMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *RetainedObjectMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[retainedobject.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *RetainedObjectMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[retainedobject.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *RetainedObjectMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, retainedobject.FieldDeletedAt)
+}
+
+// SetStoragePolicyID sets the "storage_policy_id" field.
+func (m *RetainedObjectMutation) SetStoragePolicyID(i int) {
+	m.storage_policy_id = &i
+	m.addstorage_policy_id = nil
+}
+
+// StoragePolicyID returns the value of the "storage_policy_id" field in the mutation.
+func (m *RetainedObjectMutation) StoragePolicyID() (r int, exists bool) {
+	v := m.storage_policy_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStoragePolicyID returns the old "storage_policy_id" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldStoragePolicyID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStoragePolicyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStoragePolicyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStoragePolicyID: %w", err)
+	}
+	return oldValue.StoragePolicyID, nil
+}
+
+// AddStoragePolicyID adds i to the "storage_policy_id" field.
+func (m *RetainedObjectMutation) AddStoragePolicyID(i int) {
+	if m.addstorage_policy_id != nil {
+		*m.addstorage_policy_id += i
+	} else {
+		m.addstorage_policy_id = &i
+	}
+}
+
+// AddedStoragePolicyID returns the value that was added to the "storage_policy_id" field in this mutation.
+func (m *RetainedObjectMutation) AddedStoragePolicyID() (r int, exists bool) {
+	v := m.addstorage_policy_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStoragePolicyID resets all changes to the "storage_policy_id" field.
+func (m *RetainedObjectMutation) ResetStoragePolicyID() {
+	m.storage_policy_id = nil
+	m.addstorage_policy_id = nil
+}
+
+// SetSource sets the "source" field.
+func (m *RetainedObjectMutation) SetSource(s string) {
+	m.source = &s
+}
+
+// Source returns the value of the "source" field in the mutation.
+func (m *RetainedObjectMutation) Source() (r string, exists bool) {
+	v := m.source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSource returns the old "source" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource resets all changes to the "source" field.
+func (m *RetainedObjectMutation) ResetSource() {
+	m.source = nil
+}
+
+// SetSize sets the "size" field.
+func (m *RetainedObjectMutation) SetSize(i int64) {
+	m.size = &i
+	m.addsize = nil
+}
+
+// Size returns the value of the "size" field in the mutation.
+func (m *RetainedObjectMutation) Size() (r int64, exists bool) {
+	v := m.size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSize returns the old "size" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldSize(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSize: %w", err)
+	}
+	return oldValue.Size, nil
+}
+
+// AddSize adds i to the "size" field.
+func (m *RetainedObjectMutation) AddSize(i int64) {
+	if m.addsize != nil {
+		*m.addsize += i
+	} else {
+		m.addsize = &i
+	}
+}
+
+// AddedSize returns the value that was added to the "size" field in this mutation.
+func (m *RetainedObjectMutation) AddedSize() (r int64, exists bool) {
+	v := m.addsize
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSize resets all changes to the "size" field.
+func (m *RetainedObjectMutation) ResetSize() {
+	m.size = nil
+	m.addsize = nil
+}
+
+// SetEntityType sets the "entity_type" field.
+func (m *RetainedObjectMutation) SetEntityType(i int) {
+	m.entity_type = &i
+	m.addentity_type = nil
+}
+
+// EntityType returns the value of the "entity_type" field in the mutation.
+func (m *RetainedObjectMutation) EntityType() (r int, exists bool) {
+	v := m.entity_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntityType returns the old "entity_type" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldEntityType(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntityType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntityType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntityType: %w", err)
+	}
+	return oldValue.EntityType, nil
+}
+
+// AddEntityType adds i to the "entity_type" field.
+func (m *RetainedObjectMutation) AddEntityType(i int) {
+	if m.addentity_type != nil {
+		*m.addentity_type += i
+	} else {
+		m.addentity_type = &i
+	}
+}
+
+// AddedEntityType returns the value that was added to the "entity_type" field in this mutation.
+func (m *RetainedObjectMutation) AddedEntityType() (r int, exists bool) {
+	v := m.addentity_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEntityType resets all changes to the "entity_type" field.
+func (m *RetainedObjectMutation) ResetEntityType() {
+	m.entity_type = nil
+	m.addentity_type = nil
+}
+
+// SetFileID sets the "file_id" field.
+func (m *RetainedObjectMutation) SetFileID(i int) {
+	m.file_id = &i
+	m.addfile_id = nil
+}
+
+// FileID returns the value of the "file_id" field in the mutation.
+func (m *RetainedObjectMutation) FileID() (r int, exists bool) {
+	v := m.file_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileID returns the old "file_id" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldFileID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileID: %w", err)
+	}
+	return oldValue.FileID, nil
+}
+
+// AddFileID adds i to the "file_id" field.
+func (m *RetainedObjectMutation) AddFileID(i int) {
+	if m.addfile_id != nil {
+		*m.addfile_id += i
+	} else {
+		m.addfile_id = &i
+	}
+}
+
+// AddedFileID returns the value that was added to the "file_id" field in this mutation.
+func (m *RetainedObjectMutation) AddedFileID() (r int, exists bool) {
+	v := m.addfile_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearFileID clears the value of the "file_id" field.
+func (m *RetainedObjectMutation) ClearFileID() {
+	m.file_id = nil
+	m.addfile_id = nil
+	m.clearedFields[retainedobject.FieldFileID] = struct{}{}
+}
+
+// FileIDCleared returns if the "file_id" field was cleared in this mutation.
+func (m *RetainedObjectMutation) FileIDCleared() bool {
+	_, ok := m.clearedFields[retainedobject.FieldFileID]
+	return ok
+}
+
+// ResetFileID resets all changes to the "file_id" field.
+func (m *RetainedObjectMutation) ResetFileID() {
+	m.file_id = nil
+	m.addfile_id = nil
+	delete(m.clearedFields, retainedobject.FieldFileID)
+}
+
+// SetEntityID sets the "entity_id" field.
+func (m *RetainedObjectMutation) SetEntityID(i int) {
+	m.entity_id = &i
+	m.addentity_id = nil
+}
+
+// EntityID returns the value of the "entity_id" field in the mutation.
+func (m *RetainedObjectMutation) EntityID() (r int, exists bool) {
+	v := m.entity_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntityID returns the old "entity_id" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldEntityID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntityID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntityID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntityID: %w", err)
+	}
+	return oldValue.EntityID, nil
+}
+
+// AddEntityID adds i to the "entity_id" field.
+func (m *RetainedObjectMutation) AddEntityID(i int) {
+	if m.addentity_id != nil {
+		*m.addentity_id += i
+	} else {
+		m.addentity_id = &i
+	}
+}
+
+// AddedEntityID returns the value that was added to the "entity_id" field in this mutation.
+func (m *RetainedObjectMutation) AddedEntityID() (r int, exists bool) {
+	v := m.addentity_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearEntityID clears the value of the "entity_id" field.
+func (m *RetainedObjectMutation) ClearEntityID() {
+	m.entity_id = nil
+	m.addentity_id = nil
+	m.clearedFields[retainedobject.FieldEntityID] = struct{}{}
+}
+
+// EntityIDCleared returns if the "entity_id" field was cleared in this mutation.
+func (m *RetainedObjectMutation) EntityIDCleared() bool {
+	_, ok := m.clearedFields[retainedobject.FieldEntityID]
+	return ok
+}
+
+// ResetEntityID resets all changes to the "entity_id" field.
+func (m *RetainedObjectMutation) ResetEntityID() {
+	m.entity_id = nil
+	m.addentity_id = nil
+	delete(m.clearedFields, retainedobject.FieldEntityID)
+}
+
+// SetOwnerID sets the "owner_id" field.
+func (m *RetainedObjectMutation) SetOwnerID(i int) {
+	m.owner_id = &i
+	m.addowner_id = nil
+}
+
+// OwnerID returns the value of the "owner_id" field in the mutation.
+func (m *RetainedObjectMutation) OwnerID() (r int, exists bool) {
+	v := m.owner_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerID returns the old "owner_id" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldOwnerID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerID: %w", err)
+	}
+	return oldValue.OwnerID, nil
+}
+
+// AddOwnerID adds i to the "owner_id" field.
+func (m *RetainedObjectMutation) AddOwnerID(i int) {
+	if m.addowner_id != nil {
+		*m.addowner_id += i
+	} else {
+		m.addowner_id = &i
+	}
+}
+
+// AddedOwnerID returns the value that was added to the "owner_id" field in this mutation.
+func (m *RetainedObjectMutation) AddedOwnerID() (r int, exists bool) {
+	v := m.addowner_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOwnerID clears the value of the "owner_id" field.
+func (m *RetainedObjectMutation) ClearOwnerID() {
+	m.owner_id = nil
+	m.addowner_id = nil
+	m.clearedFields[retainedobject.FieldOwnerID] = struct{}{}
+}
+
+// OwnerIDCleared returns if the "owner_id" field was cleared in this mutation.
+func (m *RetainedObjectMutation) OwnerIDCleared() bool {
+	_, ok := m.clearedFields[retainedobject.FieldOwnerID]
+	return ok
+}
+
+// ResetOwnerID resets all changes to the "owner_id" field.
+func (m *RetainedObjectMutation) ResetOwnerID() {
+	m.owner_id = nil
+	m.addowner_id = nil
+	delete(m.clearedFields, retainedobject.FieldOwnerID)
+}
+
+// SetState sets the "state" field.
+func (m *RetainedObjectMutation) SetState(s string) {
+	m.state = &s
+}
+
+// State returns the value of the "state" field in the mutation.
+func (m *RetainedObjectMutation) State() (r string, exists bool) {
+	v := m.state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldState returns the old "state" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldState(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldState: %w", err)
+	}
+	return oldValue.State, nil
+}
+
+// ResetState resets all changes to the "state" field.
+func (m *RetainedObjectMutation) ResetState() {
+	m.state = nil
+}
+
+// SetAttempts sets the "attempts" field.
+func (m *RetainedObjectMutation) SetAttempts(i int) {
+	m.attempts = &i
+	m.addattempts = nil
+}
+
+// Attempts returns the value of the "attempts" field in the mutation.
+func (m *RetainedObjectMutation) Attempts() (r int, exists bool) {
+	v := m.attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttempts returns the old "attempts" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldAttempts(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttempts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttempts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttempts: %w", err)
+	}
+	return oldValue.Attempts, nil
+}
+
+// AddAttempts adds i to the "attempts" field.
+func (m *RetainedObjectMutation) AddAttempts(i int) {
+	if m.addattempts != nil {
+		*m.addattempts += i
+	} else {
+		m.addattempts = &i
+	}
+}
+
+// AddedAttempts returns the value that was added to the "attempts" field in this mutation.
+func (m *RetainedObjectMutation) AddedAttempts() (r int, exists bool) {
+	v := m.addattempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttempts resets all changes to the "attempts" field.
+func (m *RetainedObjectMutation) ResetAttempts() {
+	m.attempts = nil
+	m.addattempts = nil
+}
+
+// SetLastError sets the "last_error" field.
+func (m *RetainedObjectMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *RetainedObjectMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the RetainedObject entity.
+// If the RetainedObject object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RetainedObjectMutation) OldLastError(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *RetainedObjectMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[retainedobject.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *RetainedObjectMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[retainedobject.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *RetainedObjectMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, retainedobject.FieldLastError)
+}
+
+// Where appends a list predicates to the RetainedObjectMutation builder.
+func (m *RetainedObjectMutation) Where(ps ...predicate.RetainedObject) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RetainedObjectMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RetainedObjectMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RetainedObject, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RetainedObjectMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RetainedObjectMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RetainedObject).
+func (m *RetainedObjectMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RetainedObjectMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.created_at != nil {
+		fields = append(fields, retainedobject.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, retainedobject.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, retainedobject.FieldDeletedAt)
+	}
+	if m.storage_policy_id != nil {
+		fields = append(fields, retainedobject.FieldStoragePolicyID)
+	}
+	if m.source != nil {
+		fields = append(fields, retainedobject.FieldSource)
+	}
+	if m.size != nil {
+		fields = append(fields, retainedobject.FieldSize)
+	}
+	if m.entity_type != nil {
+		fields = append(fields, retainedobject.FieldEntityType)
+	}
+	if m.file_id != nil {
+		fields = append(fields, retainedobject.FieldFileID)
+	}
+	if m.entity_id != nil {
+		fields = append(fields, retainedobject.FieldEntityID)
+	}
+	if m.owner_id != nil {
+		fields = append(fields, retainedobject.FieldOwnerID)
+	}
+	if m.state != nil {
+		fields = append(fields, retainedobject.FieldState)
+	}
+	if m.attempts != nil {
+		fields = append(fields, retainedobject.FieldAttempts)
+	}
+	if m.last_error != nil {
+		fields = append(fields, retainedobject.FieldLastError)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RetainedObjectMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case retainedobject.FieldCreatedAt:
+		return m.CreatedAt()
+	case retainedobject.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case retainedobject.FieldDeletedAt:
+		return m.DeletedAt()
+	case retainedobject.FieldStoragePolicyID:
+		return m.StoragePolicyID()
+	case retainedobject.FieldSource:
+		return m.Source()
+	case retainedobject.FieldSize:
+		return m.Size()
+	case retainedobject.FieldEntityType:
+		return m.EntityType()
+	case retainedobject.FieldFileID:
+		return m.FileID()
+	case retainedobject.FieldEntityID:
+		return m.EntityID()
+	case retainedobject.FieldOwnerID:
+		return m.OwnerID()
+	case retainedobject.FieldState:
+		return m.State()
+	case retainedobject.FieldAttempts:
+		return m.Attempts()
+	case retainedobject.FieldLastError:
+		return m.LastError()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RetainedObjectMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case retainedobject.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case retainedobject.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case retainedobject.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case retainedobject.FieldStoragePolicyID:
+		return m.OldStoragePolicyID(ctx)
+	case retainedobject.FieldSource:
+		return m.OldSource(ctx)
+	case retainedobject.FieldSize:
+		return m.OldSize(ctx)
+	case retainedobject.FieldEntityType:
+		return m.OldEntityType(ctx)
+	case retainedobject.FieldFileID:
+		return m.OldFileID(ctx)
+	case retainedobject.FieldEntityID:
+		return m.OldEntityID(ctx)
+	case retainedobject.FieldOwnerID:
+		return m.OldOwnerID(ctx)
+	case retainedobject.FieldState:
+		return m.OldState(ctx)
+	case retainedobject.FieldAttempts:
+		return m.OldAttempts(ctx)
+	case retainedobject.FieldLastError:
+		return m.OldLastError(ctx)
+	}
+	return nil, fmt.Errorf("unknown RetainedObject field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RetainedObjectMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case retainedobject.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case retainedobject.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case retainedobject.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case retainedobject.FieldStoragePolicyID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStoragePolicyID(v)
+		return nil
+	case retainedobject.FieldSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSource(v)
+		return nil
+	case retainedobject.FieldSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSize(v)
+		return nil
+	case retainedobject.FieldEntityType:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntityType(v)
+		return nil
+	case retainedobject.FieldFileID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileID(v)
+		return nil
+	case retainedobject.FieldEntityID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntityID(v)
+		return nil
+	case retainedobject.FieldOwnerID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerID(v)
+		return nil
+	case retainedobject.FieldState:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetState(v)
+		return nil
+	case retainedobject.FieldAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttempts(v)
+		return nil
+	case retainedobject.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RetainedObject field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RetainedObjectMutation) AddedFields() []string {
+	var fields []string
+	if m.addstorage_policy_id != nil {
+		fields = append(fields, retainedobject.FieldStoragePolicyID)
+	}
+	if m.addsize != nil {
+		fields = append(fields, retainedobject.FieldSize)
+	}
+	if m.addentity_type != nil {
+		fields = append(fields, retainedobject.FieldEntityType)
+	}
+	if m.addfile_id != nil {
+		fields = append(fields, retainedobject.FieldFileID)
+	}
+	if m.addentity_id != nil {
+		fields = append(fields, retainedobject.FieldEntityID)
+	}
+	if m.addowner_id != nil {
+		fields = append(fields, retainedobject.FieldOwnerID)
+	}
+	if m.addattempts != nil {
+		fields = append(fields, retainedobject.FieldAttempts)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RetainedObjectMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case retainedobject.FieldStoragePolicyID:
+		return m.AddedStoragePolicyID()
+	case retainedobject.FieldSize:
+		return m.AddedSize()
+	case retainedobject.FieldEntityType:
+		return m.AddedEntityType()
+	case retainedobject.FieldFileID:
+		return m.AddedFileID()
+	case retainedobject.FieldEntityID:
+		return m.AddedEntityID()
+	case retainedobject.FieldOwnerID:
+		return m.AddedOwnerID()
+	case retainedobject.FieldAttempts:
+		return m.AddedAttempts()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RetainedObjectMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case retainedobject.FieldStoragePolicyID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStoragePolicyID(v)
+		return nil
+	case retainedobject.FieldSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSize(v)
+		return nil
+	case retainedobject.FieldEntityType:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEntityType(v)
+		return nil
+	case retainedobject.FieldFileID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFileID(v)
+		return nil
+	case retainedobject.FieldEntityID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEntityID(v)
+		return nil
+	case retainedobject.FieldOwnerID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOwnerID(v)
+		return nil
+	case retainedobject.FieldAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttempts(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RetainedObject numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RetainedObjectMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(retainedobject.FieldDeletedAt) {
+		fields = append(fields, retainedobject.FieldDeletedAt)
+	}
+	if m.FieldCleared(retainedobject.FieldFileID) {
+		fields = append(fields, retainedobject.FieldFileID)
+	}
+	if m.FieldCleared(retainedobject.FieldEntityID) {
+		fields = append(fields, retainedobject.FieldEntityID)
+	}
+	if m.FieldCleared(retainedobject.FieldOwnerID) {
+		fields = append(fields, retainedobject.FieldOwnerID)
+	}
+	if m.FieldCleared(retainedobject.FieldLastError) {
+		fields = append(fields, retainedobject.FieldLastError)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RetainedObjectMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RetainedObjectMutation) ClearField(name string) error {
+	switch name {
+	case retainedobject.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case retainedobject.FieldFileID:
+		m.ClearFileID()
+		return nil
+	case retainedobject.FieldEntityID:
+		m.ClearEntityID()
+		return nil
+	case retainedobject.FieldOwnerID:
+		m.ClearOwnerID()
+		return nil
+	case retainedobject.FieldLastError:
+		m.ClearLastError()
+		return nil
+	}
+	return fmt.Errorf("unknown RetainedObject nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RetainedObjectMutation) ResetField(name string) error {
+	switch name {
+	case retainedobject.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case retainedobject.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case retainedobject.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case retainedobject.FieldStoragePolicyID:
+		m.ResetStoragePolicyID()
+		return nil
+	case retainedobject.FieldSource:
+		m.ResetSource()
+		return nil
+	case retainedobject.FieldSize:
+		m.ResetSize()
+		return nil
+	case retainedobject.FieldEntityType:
+		m.ResetEntityType()
+		return nil
+	case retainedobject.FieldFileID:
+		m.ResetFileID()
+		return nil
+	case retainedobject.FieldEntityID:
+		m.ResetEntityID()
+		return nil
+	case retainedobject.FieldOwnerID:
+		m.ResetOwnerID()
+		return nil
+	case retainedobject.FieldState:
+		m.ResetState()
+		return nil
+	case retainedobject.FieldAttempts:
+		m.ResetAttempts()
+		return nil
+	case retainedobject.FieldLastError:
+		m.ResetLastError()
+		return nil
+	}
+	return fmt.Errorf("unknown RetainedObject field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RetainedObjectMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RetainedObjectMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RetainedObjectMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RetainedObjectMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RetainedObjectMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RetainedObjectMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RetainedObjectMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown RetainedObject unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RetainedObjectMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown RetainedObject edge %s", name)
 }
 
 // SettingMutation represents an operation that mutates the Setting nodes in the graph.

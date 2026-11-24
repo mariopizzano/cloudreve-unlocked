@@ -361,6 +361,41 @@ var (
 			},
 		},
 	}
+	// RetainedObjectsColumns holds the columns for the "retained_objects" table.
+	RetainedObjectsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "storage_policy_id", Type: field.TypeInt},
+		{Name: "source", Type: field.TypeString, Size: 2147483647},
+		{Name: "size", Type: field.TypeInt64, Default: 0},
+		{Name: "entity_type", Type: field.TypeInt, Default: 0},
+		{Name: "file_id", Type: field.TypeInt, Nullable: true},
+		{Name: "entity_id", Type: field.TypeInt, Nullable: true},
+		{Name: "owner_id", Type: field.TypeInt, Nullable: true},
+		{Name: "state", Type: field.TypeString, Default: "pending"},
+		{Name: "attempts", Type: field.TypeInt, Default: 0},
+		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+	}
+	// RetainedObjectsTable holds the schema information for the "retained_objects" table.
+	RetainedObjectsTable = &schema.Table{
+		Name:       "retained_objects",
+		Columns:    RetainedObjectsColumns,
+		PrimaryKey: []*schema.Column{RetainedObjectsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "retainedobject_state_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{RetainedObjectsColumns[11], RetainedObjectsColumns[1]},
+			},
+			{
+				Name:    "retainedobject_storage_policy_id_state",
+				Unique:  false,
+				Columns: []*schema.Column{RetainedObjectsColumns[4], RetainedObjectsColumns[11]},
+			},
+		},
+	}
 	// SettingsColumns holds the columns for the "settings" table.
 	SettingsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -539,6 +574,7 @@ var (
 		OauthClientsTable,
 		OauthGrantsTable,
 		PasskeysTable,
+		RetainedObjectsTable,
 		SettingsTable,
 		SharesTable,
 		StoragePoliciesTable,

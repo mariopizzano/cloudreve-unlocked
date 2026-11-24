@@ -20,6 +20,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
 	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
 	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
+	"github.com/cloudreve/Cloudreve/v4/ent/retainedobject"
 	"github.com/cloudreve/Cloudreve/v4/ent/setting"
 	"github.com/cloudreve/Cloudreve/v4/ent/share"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
@@ -380,6 +381,33 @@ func (f TraversePasskey) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.PasskeyQuery", q)
 }
 
+// The RetainedObjectFunc type is an adapter to allow the use of ordinary function as a Querier.
+type RetainedObjectFunc func(context.Context, *ent.RetainedObjectQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f RetainedObjectFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.RetainedObjectQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.RetainedObjectQuery", q)
+}
+
+// The TraverseRetainedObject type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseRetainedObject func(context.Context, *ent.RetainedObjectQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseRetainedObject) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseRetainedObject) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.RetainedObjectQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.RetainedObjectQuery", q)
+}
+
 // The SettingFunc type is an adapter to allow the use of ordinary function as a Querier.
 type SettingFunc func(context.Context, *ent.SettingQuery) (ent.Value, error)
 
@@ -540,6 +568,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.OAuthGrantQuery, predicate.OAuthGrant, oauthgrant.OrderOption]{typ: ent.TypeOAuthGrant, tq: q}, nil
 	case *ent.PasskeyQuery:
 		return &query[*ent.PasskeyQuery, predicate.Passkey, passkey.OrderOption]{typ: ent.TypePasskey, tq: q}, nil
+	case *ent.RetainedObjectQuery:
+		return &query[*ent.RetainedObjectQuery, predicate.RetainedObject, retainedobject.OrderOption]{typ: ent.TypeRetainedObject, tq: q}, nil
 	case *ent.SettingQuery:
 		return &query[*ent.SettingQuery, predicate.Setting, setting.OrderOption]{typ: ent.TypeSetting, tq: q}, nil
 	case *ent.ShareQuery:

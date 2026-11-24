@@ -33,18 +33,18 @@ type (
 	}
 
 	RelocateTaskState struct {
-		Src          []string `json:"src"`
-		DstPolicyID  int      `json:"dst_policy_id"`
-		Phase        string   `json:"phase"`
-		Total        int      `json:"total"`
-		Done         int      `json:"done"`
-		Failed       int      `json:"failed"`
-		Skipped      int      `json:"skipped"`
-		Unsupported  int      `json:"unsupported"`
-		Versions     int      `json:"versions"`
-		Thumbnails   int      `json:"thumbnails"`
-		Shared       int      `json:"shared"`
-		DeleteSource bool     `json:"delete_source"`
+		Src          []string          `json:"src"`
+		DstPolicyID  int               `json:"dst_policy_id"`
+		Phase        string            `json:"phase"`
+		Total        int               `json:"total"`
+		Done         int               `json:"done"`
+		Failed       int               `json:"failed"`
+		Skipped      int               `json:"skipped"`
+		Unsupported  int               `json:"unsupported"`
+		Versions     int               `json:"versions"`
+		Thumbnails   int               `json:"thumbnails"`
+		Shared       int               `json:"shared"`
+		DeleteSource bool              `json:"delete_source"`
 		Failures     []RelocateFailure `json:"failures,omitempty"`
 	}
 
@@ -421,6 +421,7 @@ func (m *RelocateTask) relocateEntity(ctx context.Context, dep dependency.Dep, u
 		NewSource:       savePath,
 		StoragePolicyID: dstPolicy.ID,
 		EncryptMetadata: storedMeta,
+		DeleteSource:    m.state.DeleteSource,
 	}); err != nil {
 		// The physical copy is orphaned; remove it best-effort.
 		if _, delErr := driver.Delete(ctx, savePath); delErr != nil {

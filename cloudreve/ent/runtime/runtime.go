@@ -16,6 +16,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
 	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
+	"github.com/cloudreve/Cloudreve/v4/ent/retainedobject"
 	"github.com/cloudreve/Cloudreve/v4/ent/schema"
 	"github.com/cloudreve/Cloudreve/v4/ent/setting"
 	"github.com/cloudreve/Cloudreve/v4/ent/share"
@@ -295,6 +296,41 @@ func init() {
 	passkey.DefaultUpdatedAt = passkeyDescUpdatedAt.Default.(func() time.Time)
 	// passkey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	passkey.UpdateDefaultUpdatedAt = passkeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	retainedobjectMixin := schema.RetainedObject{}.Mixin()
+	retainedobjectMixinHooks0 := retainedobjectMixin[0].Hooks()
+	retainedobject.Hooks[0] = retainedobjectMixinHooks0[0]
+	retainedobjectMixinInters0 := retainedobjectMixin[0].Interceptors()
+	retainedobject.Interceptors[0] = retainedobjectMixinInters0[0]
+	retainedobjectMixinFields0 := retainedobjectMixin[0].Fields()
+	_ = retainedobjectMixinFields0
+	retainedobjectFields := schema.RetainedObject{}.Fields()
+	_ = retainedobjectFields
+	// retainedobjectDescCreatedAt is the schema descriptor for created_at field.
+	retainedobjectDescCreatedAt := retainedobjectMixinFields0[0].Descriptor()
+	// retainedobject.DefaultCreatedAt holds the default value on creation for the created_at field.
+	retainedobject.DefaultCreatedAt = retainedobjectDescCreatedAt.Default.(func() time.Time)
+	// retainedobjectDescUpdatedAt is the schema descriptor for updated_at field.
+	retainedobjectDescUpdatedAt := retainedobjectMixinFields0[1].Descriptor()
+	// retainedobject.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	retainedobject.DefaultUpdatedAt = retainedobjectDescUpdatedAt.Default.(func() time.Time)
+	// retainedobject.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	retainedobject.UpdateDefaultUpdatedAt = retainedobjectDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// retainedobjectDescSize is the schema descriptor for size field.
+	retainedobjectDescSize := retainedobjectFields[2].Descriptor()
+	// retainedobject.DefaultSize holds the default value on creation for the size field.
+	retainedobject.DefaultSize = retainedobjectDescSize.Default.(int64)
+	// retainedobjectDescEntityType is the schema descriptor for entity_type field.
+	retainedobjectDescEntityType := retainedobjectFields[3].Descriptor()
+	// retainedobject.DefaultEntityType holds the default value on creation for the entity_type field.
+	retainedobject.DefaultEntityType = retainedobjectDescEntityType.Default.(int)
+	// retainedobjectDescState is the schema descriptor for state field.
+	retainedobjectDescState := retainedobjectFields[7].Descriptor()
+	// retainedobject.DefaultState holds the default value on creation for the state field.
+	retainedobject.DefaultState = retainedobjectDescState.Default.(string)
+	// retainedobjectDescAttempts is the schema descriptor for attempts field.
+	retainedobjectDescAttempts := retainedobjectFields[8].Descriptor()
+	// retainedobject.DefaultAttempts holds the default value on creation for the attempts field.
+	retainedobject.DefaultAttempts = retainedobjectDescAttempts.Default.(int)
 	settingMixin := schema.Setting{}.Mixin()
 	settingMixinHooks0 := settingMixin[0].Hooks()
 	setting.Hooks[0] = settingMixinHooks0[0]

@@ -1,6 +1,6 @@
 # Relocation tra storage policy
 
-Stato: **Fase 3 implementata** (entità primarie, versioni, thumbnail, blob condivisi, gestione sorgente e record orfani), con dry-run.
+Stato: **Fase 4 implementata** (entità primarie, versioni, thumbnail, blob condivisi, gestione sorgente, record orfani e cleanup automatico degli oggetti trattenuti), con dry-run.
 
 ## Implementato
 
@@ -16,14 +16,31 @@ Stato: **Fase 3 implementata** (entità primarie, versioni, thumbnail, blob cond
   altri file e il suo `reference_count` viene decrementato
 - `delete_source` opzionale, **default false**: l'oggetto sorgente viene conservato; le
   entità condivise non vengono mai cancellate
+- gli oggetti conservati con `delete_source=false` vengono tracciati nella tabella
+  `retained_objects` (policy, chiave fisica, dimensione, file/entità di origine, timestamp,
+  stato) e rimossi fisicamente da un cron giornaliero dopo la retention configurata
 - il plan espone: file, cartelle, entità totali, versioni, thumbnail, condivise, cifrate, dimensione
+
+## Cleanup degli oggetti trattenuti
+
+- cron: `cron_retained_object_cleanup` (default `@daily`)
+- abilitazione: `retained_object_cleanup_enabled` (default `1`)
+- retention: `retained_object_retention_days` (default `7` giorni)
+- dimensione batch DB: `retained_object_cleanup_batch` (default `100`)
+- prima di cancellare, il cleanup verifica che nessuna entità viva (non soft-deleted) referenzi
+  la stessa coppia policy+source; in tal caso il record passa allo stato `skipped` e l'oggetto
+  non viene toccato
+- endpoint admin:
+  - `GET /api/v4/admin/retained-objects` — conteggi, dimensione, ultima esecuzione e lista
+  - `DELETE /api/v4/admin/retained-objects` — cleanup forzato immediato (ignora la retention,
+    ma mantiene il controllo delle reference vive)
 
 ## Limiti attuali
 
-- nessun cleanup automatico degli oggetti trattenuti con `delete_source=false`: l'oggetto resta
-  sulla policy di origine, non più tracciato dal DB, e va rimosso manualmente
 - nessun lock esplicito del file durante il task
 - la policy montata sulla cartella non viene modificata: cambia solo la policy effettiva dei file
+- se un oggetto risulta ancora referenziato da un'entità viva viene marcato `skipped` e non
+  ritentato automaticamente: la sua eventuale rimozione resta in carico al collector delle entità
 
 ## Strategia
 
@@ -36,8 +53,9 @@ Copia a livello di entità + swap nel database:
 5. rimozione della vecchia entità dal DB, oppure decremento del reference count se condivisa;
 6. gestione della sorgente:
    - `delete_source=true`: l'oggetto fisico viene eliminato subito dopo il commit;
-   - `delete_source=false`: l'oggetto fisico resta sulla policy di origine e non viene più
-     tracciato dal DB (pulizia manuale).
+   - `delete_source=false`: l'oggetto fisico resta sulla policy di origine e viene registrato
+     in `retained_objects` nella stessa transazione dell'hard delete dell'entità; il cleanup
+     periodico lo eliminerà dopo la retention.
    In entrambi i casi la vecchia riga entità viene eliminata definitivamente (hard delete), così
    non restano record orfani che il collector non sarebbe in grado di raccogliere.
 
@@ -52,8 +70,11 @@ Copia a livello di entità + swap nel database:
   locale residuo, download sempre HTTP 200
 - **Fase 3, delete_source=false**: la vecchia entità viene rimossa definitivamente dal DB (hard delete),
   l'oggetto locale resta su disco dopo il passaggio del collector, download HTTP 200
+- **Fase 4, cleanup automatico**: unit test su scadenza/retention, safety check su entità vive e
+  soft-deleted (SQLite in-memory), `go build ./...` completo
 - cleanup manuale degli oggetti locali trattenuti e delle vecchie righe di test
 
 ## Prossimi passi
 
-- Fase 4: audit dettagliato per entità; la UI chiede già se mantenere o eliminare la copia di origine
+- audit dettagliato per entità nella UI; la UI chiede già se mantenere o eliminare la copia di origine
+- pagina admin dedicata per il cleanup (oggi disponibile via API)

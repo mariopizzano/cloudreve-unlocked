@@ -920,6 +920,21 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 					)
 				}
 
+				retainedObjects := admin.Group("retained-objects")
+				{
+					// List retained objects and cleanup stats.
+					retainedObjects.GET("",
+						controllers.FromQuery[adminsvc.RetainedObjectService](adminsvc.RetainedObjectParamCtx{}),
+						controllers.AdminGetRetainedObjects,
+					)
+					// Force a cleanup run, ignoring the retention window.
+					retainedObjects.DELETE("",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromQuery[adminsvc.ForceRetainedObjectCleanupService](adminsvc.ForceRetainedObjectCleanupParamCtx{}),
+						controllers.AdminCleanupRetainedObjects,
+					)
+				}
+
 				// 用户组管理
 				group := admin.Group("group")
 				{

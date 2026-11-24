@@ -85,6 +85,26 @@ func AdminGetQueueMetrics(c *gin.Context) {
 	c.JSON(200, serializer.Response{Data: res})
 }
 
+func AdminGetRetainedObjects(c *gin.Context) {
+	service := ParametersFromContext[*admin.RetainedObjectService](c, admin.RetainedObjectParamCtx{})
+	res, err := service.Get(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
+func AdminCleanupRetainedObjects(c *gin.Context) {
+	service := ParametersFromContext[*admin.ForceRetainedObjectCleanupService](c, admin.ForceRetainedObjectCleanupParamCtx{})
+	res, err := service.Cleanup(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
 func AdminListPolicies(c *gin.Context) {
 	service := ParametersFromContext[*admin.AdminListService](c, admin.AdminListServiceParamsCtx{})
 	res, err := service.Policies(c)

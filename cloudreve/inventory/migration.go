@@ -7,12 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"entgo.io/ent/dialect/sql/schema"
 	"github.com/Masterminds/semver/v3"
 	"github.com/cloudreve/Cloudreve/v4/application/constants"
 	"github.com/cloudreve/Cloudreve/v4/ent"
 	"github.com/cloudreve/Cloudreve/v4/ent/group"
+	entmigrate "github.com/cloudreve/Cloudreve/v4/ent/migrate"
 	"github.com/cloudreve/Cloudreve/v4/ent/node"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
+	"github.com/cloudreve/Cloudreve/v4/ent/retainedobject"
 	"github.com/cloudreve/Cloudreve/v4/ent/setting"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
 	"github.com/cloudreve/Cloudreve/v4/inventory/debug"
@@ -56,6 +59,65 @@ func migrate(l logging.Logger, client *ent.Client, ctx context.Context, kv cache
 	}
 
 	client.Setting.Create().SetName(DBVersionPrefix + requiredDbVersion).SetValue("installed").Save(ctx)
+	return nil
+}
+
+// migrateRetainedObjects ensures the additive retained_objects table exists on
+// databases whose version marker is already current. The fork can ship schema
+// additions without bumping the upstream database version marker.
+func migrateRetainedObjects(client *ent.Client, ctx context.Context) error {
+	tables := lo.Filter(entmigrate.Tables, func(t *schema.Table, _ int) bool {
+		return t.Name == retainedobject.Table
+	})
+	if len(tables) == 0 {
+		return nil
+	}
+
+	if err := entmigrate.Create(ctx, client.Schema, tables); err != nil {
+		return fmt.Errorf("failed to migrate retained objects schema: %w", err)
+	}
+
+	return nil
+}
+
+// retainedObjectDefaultSettings lists the settings used by the retained object
+// cleanup. They are inserted on databases that already carry the current
+// upstream version marker, otherwise admin updates would not be persisted.
+var retainedObjectDefaultSettings = []string{
+	"cron_retained_object_cleanup",
+	"retained_object_cleanup_enabled",
+	"retained_object_retention_days",
+	"retained_object_cleanup_batch",
+}
+
+func migrateRetainedObjectSettings(client *ent.Client, ctx context.Context) error {
+	existing, err := client.Setting.Query().
+		Where(setting.NameIn(retainedObjectDefaultSettings...)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query retained object settings: %w", err)
+	}
+
+	present := make(map[string]struct{}, len(existing))
+	for _, s := range existing {
+		present[s.Name] = struct{}{}
+	}
+
+	for _, name := range retainedObjectDefaultSettings {
+		if _, ok := present[name]; ok {
+			continue
+		}
+
+		value := DefaultSettings[name]
+		if override, ok := os.LookupEnv(EnvDefaultOverwritePrefix + name); ok {
+			value = override
+		}
+
+		if _, err := client.Setting.Create().SetName(name).SetValue(value).Save(ctx); err != nil {
+			return fmt.Errorf("failed to insert setting %q: %w", name, err)
+		}
+	}
+
 	return nil
 }
 

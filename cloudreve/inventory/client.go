@@ -38,6 +38,14 @@ func InitializeDBClient(l logging.Logger,
 		}
 	} else {
 		l.Info("Database schema is up to date.")
+		// Apply additive schema changes introduced by this fork even when the
+		// upstream database version marker is already present.
+		if err := migrateRetainedObjects(client, ctx); err != nil {
+			return nil, fmt.Errorf("failed to migrate additive schema: %w", err)
+		}
+		if err := migrateRetainedObjectSettings(client, ctx); err != nil {
+			return nil, fmt.Errorf("failed to migrate additive settings: %w", err)
+		}
 	}
 
 	//createMockData(client, ctx)

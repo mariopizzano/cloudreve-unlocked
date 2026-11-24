@@ -36,6 +36,8 @@ type Tx struct {
 	OAuthGrant *OAuthGrantClient
 	// Passkey is the client for interacting with the Passkey builders.
 	Passkey *PasskeyClient
+	// RetainedObject is the client for interacting with the RetainedObject builders.
+	RetainedObject *RetainedObjectClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// Share is the client for interacting with the Share builders.
@@ -188,6 +190,7 @@ func (tx *Tx) init() {
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
 	tx.OAuthGrant = NewOAuthGrantClient(tx.config)
 	tx.Passkey = NewPasskeyClient(tx.config)
+	tx.RetainedObject = NewRetainedObjectClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
 	tx.Share = NewShareClient(tx.config)
 	tx.StoragePolicy = NewStoragePolicyClient(tx.config)

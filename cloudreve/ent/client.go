@@ -26,6 +26,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
 	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
 	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
+	"github.com/cloudreve/Cloudreve/v4/ent/retainedobject"
 	"github.com/cloudreve/Cloudreve/v4/ent/setting"
 	"github.com/cloudreve/Cloudreve/v4/ent/share"
 	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
@@ -62,6 +63,8 @@ type Client struct {
 	OAuthGrant *OAuthGrantClient
 	// Passkey is the client for interacting with the Passkey builders.
 	Passkey *PasskeyClient
+	// RetainedObject is the client for interacting with the RetainedObject builders.
+	RetainedObject *RetainedObjectClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// Share is the client for interacting with the Share builders.
@@ -94,6 +97,7 @@ func (c *Client) init() {
 	c.OAuthClient = NewOAuthClientClient(c.config)
 	c.OAuthGrant = NewOAuthGrantClient(c.config)
 	c.Passkey = NewPasskeyClient(c.config)
+	c.RetainedObject = NewRetainedObjectClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.Share = NewShareClient(c.config)
 	c.StoragePolicy = NewStoragePolicyClient(c.config)
@@ -189,24 +193,25 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:           ctx,
-		config:        cfg,
-		DavAccount:    NewDavAccountClient(cfg),
-		DirectLink:    NewDirectLinkClient(cfg),
-		Entity:        NewEntityClient(cfg),
-		File:          NewFileClient(cfg),
-		FsEvent:       NewFsEventClient(cfg),
-		Group:         NewGroupClient(cfg),
-		Metadata:      NewMetadataClient(cfg),
-		Node:          NewNodeClient(cfg),
-		OAuthClient:   NewOAuthClientClient(cfg),
-		OAuthGrant:    NewOAuthGrantClient(cfg),
-		Passkey:       NewPasskeyClient(cfg),
-		Setting:       NewSettingClient(cfg),
-		Share:         NewShareClient(cfg),
-		StoragePolicy: NewStoragePolicyClient(cfg),
-		Task:          NewTaskClient(cfg),
-		User:          NewUserClient(cfg),
+		ctx:            ctx,
+		config:         cfg,
+		DavAccount:     NewDavAccountClient(cfg),
+		DirectLink:     NewDirectLinkClient(cfg),
+		Entity:         NewEntityClient(cfg),
+		File:           NewFileClient(cfg),
+		FsEvent:        NewFsEventClient(cfg),
+		Group:          NewGroupClient(cfg),
+		Metadata:       NewMetadataClient(cfg),
+		Node:           NewNodeClient(cfg),
+		OAuthClient:    NewOAuthClientClient(cfg),
+		OAuthGrant:     NewOAuthGrantClient(cfg),
+		Passkey:        NewPasskeyClient(cfg),
+		RetainedObject: NewRetainedObjectClient(cfg),
+		Setting:        NewSettingClient(cfg),
+		Share:          NewShareClient(cfg),
+		StoragePolicy:  NewStoragePolicyClient(cfg),
+		Task:           NewTaskClient(cfg),
+		User:           NewUserClient(cfg),
 	}, nil
 }
 
@@ -224,24 +229,25 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:           ctx,
-		config:        cfg,
-		DavAccount:    NewDavAccountClient(cfg),
-		DirectLink:    NewDirectLinkClient(cfg),
-		Entity:        NewEntityClient(cfg),
-		File:          NewFileClient(cfg),
-		FsEvent:       NewFsEventClient(cfg),
-		Group:         NewGroupClient(cfg),
-		Metadata:      NewMetadataClient(cfg),
-		Node:          NewNodeClient(cfg),
-		OAuthClient:   NewOAuthClientClient(cfg),
-		OAuthGrant:    NewOAuthGrantClient(cfg),
-		Passkey:       NewPasskeyClient(cfg),
-		Setting:       NewSettingClient(cfg),
-		Share:         NewShareClient(cfg),
-		StoragePolicy: NewStoragePolicyClient(cfg),
-		Task:          NewTaskClient(cfg),
-		User:          NewUserClient(cfg),
+		ctx:            ctx,
+		config:         cfg,
+		DavAccount:     NewDavAccountClient(cfg),
+		DirectLink:     NewDirectLinkClient(cfg),
+		Entity:         NewEntityClient(cfg),
+		File:           NewFileClient(cfg),
+		FsEvent:        NewFsEventClient(cfg),
+		Group:          NewGroupClient(cfg),
+		Metadata:       NewMetadataClient(cfg),
+		Node:           NewNodeClient(cfg),
+		OAuthClient:    NewOAuthClientClient(cfg),
+		OAuthGrant:     NewOAuthGrantClient(cfg),
+		Passkey:        NewPasskeyClient(cfg),
+		RetainedObject: NewRetainedObjectClient(cfg),
+		Setting:        NewSettingClient(cfg),
+		Share:          NewShareClient(cfg),
+		StoragePolicy:  NewStoragePolicyClient(cfg),
+		Task:           NewTaskClient(cfg),
+		User:           NewUserClient(cfg),
 	}, nil
 }
 
@@ -272,8 +278,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.DavAccount, c.DirectLink, c.Entity, c.File, c.FsEvent, c.Group, c.Metadata,
-		c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.Setting, c.Share,
-		c.StoragePolicy, c.Task, c.User,
+		c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.RetainedObject, c.Setting,
+		c.Share, c.StoragePolicy, c.Task, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -284,8 +290,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.DavAccount, c.DirectLink, c.Entity, c.File, c.FsEvent, c.Group, c.Metadata,
-		c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.Setting, c.Share,
-		c.StoragePolicy, c.Task, c.User,
+		c.Node, c.OAuthClient, c.OAuthGrant, c.Passkey, c.RetainedObject, c.Setting,
+		c.Share, c.StoragePolicy, c.Task, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -316,6 +322,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.OAuthGrant.mutate(ctx, m)
 	case *PasskeyMutation:
 		return c.Passkey.mutate(ctx, m)
+	case *RetainedObjectMutation:
+		return c.RetainedObject.mutate(ctx, m)
 	case *SettingMutation:
 		return c.Setting.mutate(ctx, m)
 	case *ShareMutation:
@@ -2167,6 +2175,141 @@ func (c *PasskeyClient) mutate(ctx context.Context, m *PasskeyMutation) (Value, 
 	}
 }
 
+// RetainedObjectClient is a client for the RetainedObject schema.
+type RetainedObjectClient struct {
+	config
+}
+
+// NewRetainedObjectClient returns a client for the RetainedObject from the given config.
+func NewRetainedObjectClient(c config) *RetainedObjectClient {
+	return &RetainedObjectClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `retainedobject.Hooks(f(g(h())))`.
+func (c *RetainedObjectClient) Use(hooks ...Hook) {
+	c.hooks.RetainedObject = append(c.hooks.RetainedObject, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `retainedobject.Intercept(f(g(h())))`.
+func (c *RetainedObjectClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RetainedObject = append(c.inters.RetainedObject, interceptors...)
+}
+
+// Create returns a builder for creating a RetainedObject entity.
+func (c *RetainedObjectClient) Create() *RetainedObjectCreate {
+	mutation := newRetainedObjectMutation(c.config, OpCreate)
+	return &RetainedObjectCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RetainedObject entities.
+func (c *RetainedObjectClient) CreateBulk(builders ...*RetainedObjectCreate) *RetainedObjectCreateBulk {
+	return &RetainedObjectCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RetainedObjectClient) MapCreateBulk(slice any, setFunc func(*RetainedObjectCreate, int)) *RetainedObjectCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RetainedObjectCreateBulk{err: fmt.Errorf("calling to RetainedObjectClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RetainedObjectCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RetainedObjectCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RetainedObject.
+func (c *RetainedObjectClient) Update() *RetainedObjectUpdate {
+	mutation := newRetainedObjectMutation(c.config, OpUpdate)
+	return &RetainedObjectUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RetainedObjectClient) UpdateOne(ro *RetainedObject) *RetainedObjectUpdateOne {
+	mutation := newRetainedObjectMutation(c.config, OpUpdateOne, withRetainedObject(ro))
+	return &RetainedObjectUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RetainedObjectClient) UpdateOneID(id int) *RetainedObjectUpdateOne {
+	mutation := newRetainedObjectMutation(c.config, OpUpdateOne, withRetainedObjectID(id))
+	return &RetainedObjectUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RetainedObject.
+func (c *RetainedObjectClient) Delete() *RetainedObjectDelete {
+	mutation := newRetainedObjectMutation(c.config, OpDelete)
+	return &RetainedObjectDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RetainedObjectClient) DeleteOne(ro *RetainedObject) *RetainedObjectDeleteOne {
+	return c.DeleteOneID(ro.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RetainedObjectClient) DeleteOneID(id int) *RetainedObjectDeleteOne {
+	builder := c.Delete().Where(retainedobject.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RetainedObjectDeleteOne{builder}
+}
+
+// Query returns a query builder for RetainedObject.
+func (c *RetainedObjectClient) Query() *RetainedObjectQuery {
+	return &RetainedObjectQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRetainedObject},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RetainedObject entity by its id.
+func (c *RetainedObjectClient) Get(ctx context.Context, id int) (*RetainedObject, error) {
+	return c.Query().Where(retainedobject.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RetainedObjectClient) GetX(ctx context.Context, id int) *RetainedObject {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RetainedObjectClient) Hooks() []Hook {
+	hooks := c.hooks.RetainedObject
+	return append(hooks[:len(hooks):len(hooks)], retainedobject.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *RetainedObjectClient) Interceptors() []Interceptor {
+	inters := c.inters.RetainedObject
+	return append(inters[:len(inters):len(inters)], retainedobject.Interceptors[:]...)
+}
+
+func (c *RetainedObjectClient) mutate(ctx context.Context, m *RetainedObjectMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RetainedObjectCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RetainedObjectUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RetainedObjectUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RetainedObjectDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RetainedObject mutation op: %q", m.Op())
+	}
+}
+
 // SettingClient is a client for the Setting schema.
 type SettingClient struct {
 	config
@@ -3102,13 +3245,13 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 type (
 	hooks struct {
 		DavAccount, DirectLink, Entity, File, FsEvent, Group, Metadata, Node,
-		OAuthClient, OAuthGrant, Passkey, Setting, Share, StoragePolicy, Task,
-		User []ent.Hook
+		OAuthClient, OAuthGrant, Passkey, RetainedObject, Setting, Share,
+		StoragePolicy, Task, User []ent.Hook
 	}
 	inters struct {
 		DavAccount, DirectLink, Entity, File, FsEvent, Group, Metadata, Node,
-		OAuthClient, OAuthGrant, Passkey, Setting, Share, StoragePolicy, Task,
-		User []ent.Interceptor
+		OAuthClient, OAuthGrant, Passkey, RetainedObject, Setting, Share,
+		StoragePolicy, Task, User []ent.Interceptor
 	}
 )
 
