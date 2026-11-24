@@ -46,6 +46,9 @@ func InitializeDBClient(l logging.Logger,
 		if err := migrateGroupStoragePolicies(client, ctx); err != nil {
 			return nil, fmt.Errorf("failed to migrate group storage policy pool: %w", err)
 		}
+		if err := migrateGroupStoragePolicyPoolSeed(client, ctx); err != nil {
+			return nil, fmt.Errorf("failed to seed group storage policy pool: %w", err)
+		}
 		if err := migrateRetainedObjectSettings(client, ctx); err != nil {
 			return nil, fmt.Errorf("failed to migrate additive settings: %w", err)
 		}

@@ -56,6 +56,10 @@ func migrate(l logging.Logger, client *ent.Client, ctx context.Context, kv cache
 		return fmt.Errorf("failed migrating group storage policy pool: %w", err)
 	}
 
+	if err := migrateGroupStoragePolicyPoolSeed(client, ctx); err != nil {
+		return fmt.Errorf("failed seeding group storage policy pool: %w", err)
+	}
+
 	if err := migrateOAuthClient(l, client, ctx); err != nil {
 		return fmt.Errorf("failed migrating OAuth client: %w", err)
 	}
@@ -135,6 +139,89 @@ func migrateGroupStoragePolicies(client *ent.Client, ctx context.Context) error 
 			Save(ctx); err != nil {
 			return fmt.Errorf("failed to backfill group policy pool: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// policyPoolSeedMarker records the one-time expansion of policy pools that were
+// created by the automatic backfill. The backfill inserted only each group's
+// legacy default policy, but before the pool existed every storage policy was
+// available for folder mounts and relocation. Pools that still consist solely
+// of the group default are therefore expanded with every other non-deleted
+// policy on the first start after the upgrade; curated pools are left untouched
+// and admins can narrow the pool again at any time.
+const policyPoolSeedMarker = "unlocked_policy_pool_seed"
+
+func migrateGroupStoragePolicyPoolSeed(client *ent.Client, ctx context.Context) error {
+	installed, err := client.Setting.Query().Where(setting.NameEQ(policyPoolSeedMarker)).Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check policy pool seed marker: %w", err)
+	}
+	if installed {
+		return nil
+	}
+
+	policies, err := client.StoragePolicy.Query().
+		Where(storagepolicy.DeletedAtIsNil()).
+		Order(ent.Asc(storagepolicy.FieldID)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list storage policies for pool seed: %w", err)
+	}
+
+	if len(policies) > 1 {
+		groups, err := client.Group.Query().
+			Where(group.StoragePolicyIDNEQ(0)).
+			All(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list groups for policy pool seed: %w", err)
+		}
+
+		for _, g := range groups {
+			pool, err := client.GroupStoragePolicy.Query().
+				Where(groupstoragepolicy.GroupID(g.ID)).
+				All(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list group policy pool: %w", err)
+			}
+			if len(pool) != 1 || pool[0].PolicyID != g.StoragePolicyID {
+				continue
+			}
+
+			for _, p := range policies {
+				if p.ID == g.StoragePolicyID {
+					continue
+				}
+
+				exists, err := client.GroupStoragePolicy.Query().
+					Where(
+						groupstoragepolicy.GroupID(g.ID),
+						groupstoragepolicy.PolicyID(p.ID),
+					).
+					Exist(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to check group policy pool entry: %w", err)
+				}
+				if exists {
+					continue
+				}
+
+				if _, err := client.GroupStoragePolicy.Create().
+					SetGroupID(g.ID).
+					SetPolicyID(p.ID).
+					Save(ctx); err != nil {
+					return fmt.Errorf("failed to seed group policy pool: %w", err)
+				}
+			}
+		}
+	}
+
+	if _, err := client.Setting.Create().
+		SetName(policyPoolSeedMarker).
+		SetValue("installed").
+		Save(ctx); err != nil {
+		return fmt.Errorf("failed to record policy pool seed: %w", err)
 	}
 
 	return nil
