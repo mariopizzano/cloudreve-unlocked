@@ -1,64 +1,26 @@
 # cloudreve-unlocked
 
-Fork non ufficiale di [Cloudreve](https://github.com/cloudreve/Cloudreve) con funzionalità aggiuntive di gestione delle storage policy.
+Fork open source di [Cloudreve](https://github.com/cloudreve/Cloudreve) che aggiunge, senza codice proprietario, le funzioni di gestione delle storage policy riservate a Cloudreve Pro.
 
-Questo repository **non contiene Cloudreve Pro** e non include codice proprietario. È basato sul codice sorgente pubblico GPL-3.0.
+## Cosa fa
 
-## Stato attuale
+- **Mount di una storage policy su una cartella**: i nuovi upload della cartella e delle sottocartelle usano la policy montata; vince la cartella più vicina con un mount. I file esistenti non vengono spostati.
+- **Policy effettiva e montata** visibili nei dettagli della cartella.
+- **Riposizionamento tra storage policy** (relocation):
+  - dry-run con stima di file, entità, versioni, thumbnail e spazio;
+  - sposta entità primaria, versioni e thumbnail;
+  - supporta sorgenti e destinazioni cifrate;
+  - clona le entità condivise senza toccare gli altri file;
+  - scelta tra mantenere o eliminare la copia di origine dopo il trasferimento.
+- **Pipeline i18n**: cache delle traduzioni versionata per build e controllo delle chiavi richieste in fase di build.
 
-Base:
+## Cosa manca
 
-- Cloudreve backend: `v4.19.1` (commit `6193d04`, upstream `cloudreve/Cloudreve`)
-- Cloudreve frontend: `v4.19.1` (upstream `cloudreve/frontend`)
-
-Funzionalità implementate:
-
-- mount di una storage policy su una cartella;
-- la policy montata vale per i nuovi upload nella cartella e nelle sottocartelle;
-- la cartella padre più vicina con un mount vince;
-- copia/spostamento non applicano la policy della destinazione;
-- i file esistenti non vengono spostati;
-- visualizzazione della policy effettiva e della policy montata nel pannello dettagli;
-- endpoint `GET/PATCH /api/v4/file/policy`;
-- guardia sull'eliminazione di policy montate su cartelle;
-- relocation Fase 1: dry-run, file singoli e cartelle, entità primaria, supporto cifratura, `delete_source` opzionale (default false).
-
-Non ancora implementate:
-
-- relocation di versioni e thumbnail;
-- cleanup automatico degli oggetti sorgente;
+- cleanup automatico degli oggetti di origine trattenuti (`delete_source=false`): restano sulla policy di origine e vanno rimossi manualmente;
 - load balancer policy;
 - policy multiple per gruppo;
-- policy per directory con regole avanzate.
-
-## Organizzazione per versione Cloudreve
-
-Ogni versione reale di Cloudreve ha il proprio branch:
-
-- `cloudreve-4.19.1` → questa versione
-- future versioni: `cloudreve-4.x.y`
-
-I tag releases seguono lo schema:
-
-```text
-v4.19.1-policy-mount.1
-```
-
-I diff rispetto all'upstream sono in `patches/`:
-
-- `patches/backend-4.19.1.patch`
-- `patches/frontend-4.19.1.patch`
-
-Per una nuova versione Cloudreve si crea un nuovo branch dal tag upstream e si riapplicano/adattano le patch.
-
-## Struttura
-
-```text
-cloudreve/   backend Go (module github.com/cloudreve/Cloudreve/v4)
-frontend/    frontend React/TypeScript
-patches/     diff rispetto all'upstream
-scripts/     build release
-```
+- regole avanzate di policy per directory;
+- audit dettagliato per entità nella UI di relocation.
 
 ## Build
 
@@ -68,28 +30,8 @@ Requisiti: Go 1.26+, Node.js 22+, Python 3, `zip`.
 ./scripts/build-release.sh 4.19.1
 ```
 
-Output:
-
-```text
-dist/cloudreve-4.19.1-linux-amd64
-```
-
-Il frontend viene incorporato nel binario come `application/statics/assets.zip`.
-
-## Deploy
-
-Il binario è self-contained. In produzione:
-
-1. fermare il servizio;
-2. fare backup consistente del database SQLite;
-3. sostituire il binario;
-4. avviare il servizio;
-5. verificare `/api/v4/site/ping` e i log.
-
-Nessuna migrazione database è richiesta per la funzione di mount policy: viene riutilizzata la colonna `files.storage_policy_files`.
+Output: `dist/cloudreve-4.19.1-linux-amd64`, con il frontend incorporato nel binario.
 
 ## Licenza
 
-GPL-3.0. Vedi `cloudreve/LICENSE`.
-
-Questo è un fork indipendente, non affiliato a Cloudreve.
+GPL-3.0, vedi `cloudreve/LICENSE`. Fork indipendente, non affiliato a Cloudreve.
