@@ -1,64 +1,66 @@
 # cloudreve-unlocked
 
-Fork open source di [Cloudreve](https://github.com/cloudreve/Cloudreve) 4.19.1 che implementa, senza codice proprietario, alcune funzioni della Cloudreve Pro Edition.
+English | [Italiano](README.it.md)
 
-L'obiettivo del fork è coprire le aree **gestione storage** e **sistema**, che sono quelle indispensabili per un'istanza pubblica. Le altre aree Pro sono dichiarate esplicitamente come non implementate più sotto.
+Open-source fork of [Cloudreve](https://github.com/cloudreve/Cloudreve) 4.19.1 that implements, without any proprietary code, some features of the Cloudreve Pro Edition.
 
-## Funzioni implementate
+The goal of the fork is to cover the **storage management** and **system** areas, which are the essential ones for a public instance. The other Pro areas are explicitly declared as not implemented below.
 
-### Gestione storage
+## Implemented features
 
-- **Policy per directory**: una storage policy può essere montata su una cartella; i nuovi upload della cartella e delle sottocartelle usano quella policy. Vince il mount più vicino; le cartelle senza mount ereditano dal genitore. Funziona anche via WebDAV.
-- **Policy effettiva e montata** visibili nei dettagli della cartella.
-- **Più policy per gruppo utente**: l'admin associa un pool di policy a un gruppo; l'utente sceglie la propria policy preferita tra quelle assegnate. Precedenza per i nuovi upload:
-  1. policy del file esistente;
-  2. mount della directory più vicina;
-  3. preferenza utente, se valida nel pool del gruppo;
-  4. default del gruppo;
-  5. default di sistema.
-- **Load balancing policy**: policy virtuale con più policy membro e **pesi**; gli upload vengono distribuiti sui membri in proporzione al peso. I file e le entità puntano sempre a policy concrete, mai alla virtuale. La load balancing non è selezionabile come target di relocation.
-- **Migrazione tra storage policy (relocation)**:
-  - dry-run con stima di file, entità, versioni, thumbnail e spazio;
-  - sposta entità primaria, versioni e thumbnail;
-  - supporta sorgenti e destinazioni cifrate;
-  - clona le entità condivise senza toccare gli altri file;
-  - scelta tra mantenere o eliminare la copia di origine;
-  - audit dettagliato per entità nel task e nella UI;
-  - **cleanup automatico** degli oggetti di origine trattenuti (`delete_source=false`) con retention configurabile (default 7 giorni), safety check sui riferimenti vivi e API admin per stato e pulizia forzata.
+### Storage management
 
-### Sistema
+- **Per-directory policy**: a storage policy can be mounted on a folder; new uploads in that folder and its subfolders use that policy. The closest mount wins; folders without a mount inherit from their parent. It also works over WebDAV.
+- **Effective and mounted policy** shown in the folder details.
+- **Multiple policies per user group**: the admin assigns a pool of policies to a group; the user picks their preferred policy among the assigned ones. Precedence for new uploads:
+  1. policy of the existing file;
+  2. closest directory mount;
+  3. user preference, if valid within the group pool;
+  4. group default;
+  5. system default.
+- **Load balancing policy**: a virtual policy with multiple member policies and **weights**; uploads are distributed across members in proportion to their weight. Files and entities always point to concrete policies, never to the virtual one. A load balancing policy cannot be selected as a relocation target.
+- **Storage policy relocation (migration)**:
+  - dry-run with estimates of files, entities, versions, thumbnails and size;
+  - moves the primary entity, versions and thumbnails;
+  - supports encrypted sources and destinations;
+  - clones shared entities without affecting the other files;
+  - choice between keeping or deleting the source copy;
+  - per-entity audit in the task and in the UI;
+  - **automatic cleanup** of retained source objects (`delete_source=false`) with configurable retention (7 days by default), safety check on live references, and admin API for status and forced cleanup.
 
-- **Log attività**: audit persistente di accessi (successi/fallimenti) e operazioni su file e share, con IP e user agent. L'utente vede la propria cronologia file e gli accessi recenti; l'admin ha una pagina dedicata con filtri e dettaglio. Logging best-effort: un errore di audit non blocca l'operazione originale.
-- **Pipeline i18n** con cache delle traduzioni versionata per build e controllo delle chiavi richieste in fase di build.
+### System
 
-### Correzioni
+- **Activity log**: persistent audit of sign-ins (successes/failures) and file/share operations, with IP address and user agent. Users see their own file history and recent sign-ins; the admin has a dedicated page with filters and details. Best-effort logging: an audit failure does not block the original operation.
+- **i18n pipeline** with build-versioned translation cache and build-time check of the required keys.
 
-- velocità di upload corretta al resume;
-- SQLite `busy_timeout` per ridurre i lock;
-- gestione sicura delle vecchie entità di relocation (hard delete, nessun record orfano).
+### Fixes
 
-## Cosa manca
+- correct upload speed on resume;
+- SQLite `busy_timeout` to reduce lock contention;
+- safe handling of old relocation entities (hard delete, no orphan records).
 
-Le seguenti funzioni della Pro Edition **non sono implementate** e sono considerate fuori scope per questo fork:
+## What is missing
 
-- **Segnalazioni abuso**: nessun canale di report per utenti/visitatori e nessun pannello admin di revisione.
-- **Condivisione avanzata**: modifica/eliminazione via share link, permessi granulari per file/cartella, upload anonimo, default shares, condivisione a pagamento.
-- **Monetizzazione**: piani storage, membership, codici di riscatto, crediti, ordini e pagamenti, template email ricevuta/quota superata.
-- **Autenticazione**: multi-account switching, SSO Logto, OIDC, QQ Connect, filtro email in registrazione.
-- **Altre estensioni di sistema**: annunci sito, node selection, custom property di tipo utente, iOS VOL.
+The following Pro Edition features are **not implemented** and are considered out of scope for this fork:
 
-Per le funzioni implementate non ci sono popup "passa a Pro" né upsell: i controlli Pro relativi sono stati rimossi o sbloccati. Le voci delle funzioni non implementate non sono esposte come funzionanti.
+- **Abuse reports**: no reporting channel for users/visitors and no admin review panel.
+- **Advanced sharing**: edit/delete through share links, granular file/folder permissions, anonymous upload, default shares, paid sharing.
+- **Monetization**: storage plans, memberships, redeem codes, credits, orders and payments, receipt/quota-exceeded email templates.
+- **Authentication**: multi-account switching, Logto SSO, OIDC, QQ Connect, email filtering on registration.
+- **Other system extensions**: site announcements, node selection, user-type custom properties, iOS VOL.
+
+For the implemented features there are no "upgrade to Pro" popups or upsells: the related Pro controls have been removed or unlocked. Entries for unimplemented features are not exposed as working.
 
 ## Build
 
-Requisiti: Go 1.26+, Node.js 22+, Python 3, `zip`.
+Requirements: Go 1.26+, Node.js 22+, Python 3, `zip`.
 
 ```bash
 ./scripts/build-release.sh 4.19.1
 ```
 
-Output: `dist/cloudreve-4.19.1-linux-amd64`, con il frontend incorporato nel binario.
+Output: `dist/cloudreve-4.19.1-linux-amd64`, with the frontend embedded in the binary.
 
-## Licenza
+## License
 
-GPL-3.0, vedi `cloudreve/LICENSE`. Fork indipendente, non affiliato a Cloudreve.
+GPL-3.0, see `cloudreve/LICENSE`. Independent fork, not affiliated with Cloudreve.
